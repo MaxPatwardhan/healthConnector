@@ -24,7 +24,7 @@ async def make_intervals_request(
 - **URL Format**: Relative paths like `/athlete/{id}/activities`
 - **Method**: Always GET (`_READ_ONLY_METHOD`); there is no `method`, `data` or `api_key` parameter
 - **Authentication**: HTTP Basic Auth with username "API_KEY" and password from the `API_KEY` environment variable (never from tool arguments)
-- **Path validation**: Paths may only contain `/`-separated segments of letters, digits, `-`, `_`, `.` and `,`; `.`/`..` segments are rejected, so IDs spliced into the URL cannot reach another endpoint or athlete
+- **Path validation**: Paths may only contain `/`-separated segments of letters, digits, `-`, `_`, `.` and `,`; `.`/`..` segments are rejected, so IDs spliced into the URL cannot climb out of the resource they name (e.g. `../athlete/i999/wellness` is rejected)
 - **Headers**: Includes User-Agent and Accept: application/json
 - **Timeout**: 30 seconds for all requests
 

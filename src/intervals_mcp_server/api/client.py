@@ -106,17 +106,20 @@ def _get_error_message(error_code: int, error_text: str) -> str:
 
 
 def _validate_path(url: str) -> str | None:
-    """Reject request paths that could escape the endpoint they were built for.
+    """Reject request paths that could climb out of the resource they were built for.
 
     Tool arguments such as activity or event IDs are interpolated into the path,
-    so a value like ``../athlete/i999/wellness`` would otherwise be normalised
+    so a value like ``../athlete/i999/wellness`` would otherwise be normalized
     by httpx into a request for a different resource.
 
     Returns:
         An error message, or None if the path is safe.
     """
     if not _SAFE_PATH.fullmatch(url) or any(seg in {".", ".."} for seg in url.split("/")):
-        return f"Invalid request path: {url!r}. IDs may only contain letters, digits, '-', '_' and ','."
+        return (
+            f"Invalid request path: {url!r}. Path segments may only contain letters, digits, "
+            "'-', '_', '.' and ',', and '.' or '..' segments are not allowed."
+        )
     return None
 
 

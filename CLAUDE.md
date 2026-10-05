@@ -104,7 +104,7 @@ cp .env.example .env
 | `MCP_CLIENT_SECRET` | No | Self-host only. OAuth client secret / access token. Must match what is entered in Claude.ai's connector settings. |
 | `MCP_SERVER_URL` | No | Self-host only. Public HTTPS URL of this server, without `/mcp` (default `http://localhost:8000`). Required for OAuth discovery when `MCP_CLIENT_ID`/`MCP_CLIENT_SECRET` are set. |
 
-Credentials come **only** from the environment (or `.env`): no tool accepts `api_key` or `athlete_id` arguments, so every request uses `API_KEY` and targets the athlete in `ATHLETE_ID`.
+Credentials come **only** from the environment (or `.env`): no tool accepts `api_key` or `athlete_id` arguments, so every request uses `API_KEY`. Athlete-scoped tools (`/athlete/{id}/...`) always target `ATHLETE_ID`; activity-ID tools (`/activity/{id}/...`) can read any activity the API key can see.
 
 When `MCP_CLIENT_ID` and `MCP_CLIENT_SECRET` are both set the server enables OAuth 2.0 authorization code + PKCE protection on all HTTP endpoints. FastMCP publishes `/.well-known/oauth-authorization-server` so Claude.ai can auto-discover the token endpoint. stdio transport is unaffected. Never set these on Prefect Horizon (see Operational Notes).
 
@@ -185,7 +185,7 @@ result = await make_intervals_request(
 )
 ```
 
-It only ever sends `GET` (`_READ_ONLY_METHOD`) with HTTP Basic auth from `API_KEY`; there is no `method`, `data` or `api_key` parameter. It rejects request paths containing anything other than `/`-separated segments of letters, digits, `-`, `_`, `.` and `,`, and rejects `.`/`..` segments, so IDs spliced into the URL cannot reach another endpoint or athlete.
+It only ever sends `GET` (`_READ_ONLY_METHOD`) with HTTP Basic auth from `API_KEY`; there is no `method`, `data` or `api_key` parameter. It rejects request paths containing anything other than `/`-separated segments of letters, digits, `-`, `_`, `.` and `,`, and rejects `.`/`..` segments, so IDs spliced into the URL cannot climb out of the resource they name (e.g. `../athlete/i999/wellness` is rejected).
 
 Error responses always return `{"error": True, "message": "..."}` (plus `status_code` for HTTP errors). Always check before using the result:
 
@@ -219,7 +219,7 @@ Only read tools may be added.
 6. Re-export the function in `tools/__init__.py` and `server.py` (`__all__` lists), and add its name to `READ_TOOLS` in `tests/test_read_only.py`.
 7. Write tests in `tests/` — mock the HTTP client, test both success and error paths.
 
-**Never add write tools or non-GET requests.** No tool may create, modify or delete data on Intervals.icu, and `make_intervals_request` must stay GET-only with no method/body/key parameters. `tests/test_read_only.py` enforces this (exact tool set, read-only annotations, no `api_key`/`athlete_id`/`url`/`method` tool arguments, no write HTTP verbs in `src/`, only `api/client.py` imports an HTTP library, requests are GET with the env key, path traversal rejected). Do not weaken those tests to make a change pass.
+**Never add write tools or non-GET requests.** No tool may create, modify or delete data on Intervals.icu, and `make_intervals_request` must stay GET-only with no method/body/key parameters. `tests/test_read_only.py` enforces this (exact tool set, read-only annotations, no `api_key`/`athlete_id`/`url`/`method` tool arguments, no write HTTP verbs in `src/`, exactly one HTTP call site in `src/` (`client.request(method=_READ_ONLY_METHOD)` in `api/client.py`), only `api/client.py` imports an HTTP library or the shared client, every tool called with a recording client sends only GET, requests use the env key, path traversal rejected). Do not weaken those tests to make a change pass.
 
 ---
 
@@ -230,6 +230,7 @@ Only read tools may be added.
 ```python
 async def fake_request(*_args, **_kwargs):
     return mock_data
+
 
 monkeypatch.setattr("intervals_mcp_server.tools.activities.make_intervals_request", fake_request)
 ```

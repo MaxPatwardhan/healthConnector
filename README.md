@@ -9,8 +9,8 @@ This is a fork of [abamy/intervals-mcp-server](https://github.com/abamy/interval
 ## What this fork changes
 
 - **No write tools.** The 22 tools that could create, edit or delete data on Intervals.icu are gone, along with their helpers and tests. That covers activities, intervals, events, workouts, custom items and training plans. 34 read tools remain ([list below](#tools)).
-- **GET only.** The API client has no way to send any other HTTP method. IDs that tools put into URL paths are validated, so an argument like `../athlete/i999/wellness` can't reach a different endpoint or athlete.
-- **Credentials only from the environment.** No tool accepts `api_key` or `athlete_id`. The server uses `API_KEY` and `ATHLETE_ID` from its environment and nothing else.
+- **GET only.** The API client has no way to send any other HTTP method. IDs that tools put into URL paths are validated, so an argument like `../athlete/i999/wellness` can't climb out of the resource it names.
+- **Credentials only from the environment.** No tool accepts `api_key` or `athlete_id`. The server uses `API_KEY` and `ATHLETE_ID` from its environment and nothing else. Athlete-level tools always read `ATHLETE_ID`. Tools that take an activity ID can read any activity your API key can see, which only matters if your account can see other athletes' data (e.g. as a coach).
 - **Enforced by tests.** [`tests/test_read_only.py`](tests/test_read_only.py) fails if a non-read-only tool, a write HTTP verb, a credential argument or a path-traversal hole comes back.
 - **Pinned dependencies.** `fastmcp` and `mcp` are pinned to exact versions in `pyproject.toml`, because Prefect Horizon installs from `pyproject.toml` and ignores `uv.lock`.
 
@@ -136,7 +136,7 @@ To use it locally from Claude Desktop, add an entry to `claude_desktop_config.js
 }
 ```
 
-The server picks up `API_KEY` and `ATHLETE_ID` from the `.env` file in the repo directory.
+The server picks up `API_KEY` and `ATHLETE_ID` from the `.env` file in the repo directory. Claude Desktop doesn't use your shell's `PATH`, so if it reports `spawn uv ENOENT`, set `command` to the full path from `which uv`.
 
 ### Checking a running server
 

@@ -22,9 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `get_activities_around`, `get_activities_by_ids`, `get_activity_tags`.
 - Training plan tool: `get_training_plan`.
 - `tests/test_read_only.py`: guard tests for the read-only guarantee (exact tool set,
-  read-only annotations, no credential parameters, no write verbs in tool source, only
-  `api/client.py` imports an HTTP library, requests are GET with the environment API
-  key, path traversal is rejected).
+  read-only annotations, no credential parameters, no write verbs in tool source, a
+  single GET-only HTTP call site, only `api/client.py` imports an HTTP library or the
+  shared client, every tool sends only GET requests with the environment API key, path
+  traversal is rejected).
 - `tests/conftest.py`: sets test `API_KEY`/`ATHLETE_ID` before imports and resets the
   config singleton for every test.
 
@@ -36,8 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   them as arguments. `resolve_athlete_id` takes only the configured value.
 - The API client (`make_intervals_request(url, params=None)`) only sends GET and
   rejects request paths containing anything but letters, digits, `-`, `_`, `.`, `,`
-  and `/`, or containing `.`/`..` segments, so IDs interpolated into URLs cannot reach
-  other endpoints or athletes.
+  and `/`, or containing `.`/`..` segments, so IDs interpolated into URLs cannot climb
+  out of the resource they name.
 - `fastmcp` and `mcp` pinned exactly (`fastmcp==4.0.11`, `mcp==2.3.0`) because Prefect
   Horizon (formerly FastMCP Cloud) resolves dependencies from `pyproject.toml` and
   ignores `uv.lock`; `uv.lock` updated to match.
