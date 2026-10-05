@@ -10,19 +10,19 @@ alwaysApply: true
 - Follow **PEP 8** for formatting, indentation, and naming conventions
 - Write readable, maintainable code:
   - Use descriptive names for variables, functions, and classes
-  - Keep functions short and single-purpose (see MCP tools in [server.py](mdc:src/intervals_mcp_server/server.py))
+  - Keep functions short and single-purpose (see MCP tools in [tools/](mdc:src/intervals_mcp_server/tools))
   - Keep indentation and spacing consistent
 - Embrace Pythonic idioms:
   - Use list/dict comprehensions and generators where appropriate
   - Prefer built-in functions and stdlib modules
   - Use context managers (like the `lifespan` manager for httpx client)
-- Avoid global variables except for validated constants (API_KEY, ATHLETE_ID)
+- Avoid global variables except the config singleton (`get_config()`) and the shared httpx client
 - Use lazy **`%`** formatting in logging calls: `logger.debug("val=%s", val)`
 - Represent datetimes as timezone-aware UTC objects when possible
 
 ## Type Annotations and Documentation
 
-- Add **type hints** to all function signatures (see examples in [server.py](mdc:src/intervals_mcp_server/server.py))
+- Add **type hints** to all function signatures (see examples in [tools/](mdc:src/intervals_mcp_server/tools))
 - Use built-in collection types (`list`, `dict`, `set`, `tuple`) instead of `typing.List`, etc.
 - Provide clear **docstrings** for:
   - All MCP tool functions (required by FastMCP)
@@ -36,7 +36,7 @@ alwaysApply: true
 - Catch specific exceptions: `httpx.HTTPStatusError`, `httpx.RequestError`, etc.
 - Return consistent error structures with user-friendly messages
 - Validate inputs:
-  - Check API key and athlete ID on startup
+  - Validate the athlete ID format on startup; a missing API key is reported per request
   - Validate date formats in MCP tools
   - Use regex pattern `r"i?\d+"` for athlete ID validation
 
@@ -62,15 +62,17 @@ alwaysApply: true
 - Manage dependencies in `pyproject.toml` with lock file (`uv.lock`)
 - Always use virtual environments (`.venv/`)
 - Run quality checks before commits:
-  - `ruff .` for linting
+  - `ruff check .` and `ruff format --check .` for linting/formatting
   - `mypy src tests` for type checking
   - `pytest` for tests
 
 ## Security Practices
 
 - Never hard-code secrets - use environment variables via `.env` file
-- Load sensitive data (API_KEY, ATHLETE_ID) from environment
+- Load sensitive data (API_KEY, ATHLETE_ID) only from the environment; never accept them as tool arguments
 - Use HTTP Basic Auth for API authentication
+- Keep the server read-only: GET requests only, no tools that create, modify or delete data ([tests/test_read_only.py](mdc:tests/test_read_only.py) enforces this)
+- Only [api/client.py](mdc:src/intervals_mcp_server/api/client.py) may import `httpx` or any other HTTP library
 - Validate all external inputs before processing
 - Follow least-privilege principles for API access
 
@@ -79,12 +81,13 @@ alwaysApply: true
 - All API communication through `make_intervals_request()` function
 - Consistent error response format: `{"error": True, "status_code": int, "message": str}`
 - Use formatting utilities from [utils/formatting.py](mdc:src/intervals_mcp_server/utils/formatting.py)
-- Follow MCP tool naming conventions: `get_*` for retrieval operations
+- Follow MCP tool naming conventions: `get_*` (or `list_*`/`search_*`) for retrieval operations, the only kind allowed
+- Annotate every tool with `read_only_hint=True, destructive_hint=False`
 - Support both numeric and i-prefixed athlete IDs
 
 ## Code Organization
 
-- Keep all MCP tools in [server.py](mdc:src/intervals_mcp_server/server.py)
+- Keep MCP tools in the matching module under [tools/](mdc:src/intervals_mcp_server/tools) and re-export them from `tools/__init__.py` and [server.py](mdc:src/intervals_mcp_server/server.py)
 - Place formatting utilities in [utils/formatting.py](mdc:src/intervals_mcp_server/utils/formatting.py)
 - Organize tests by functionality in [tests/](mdc:tests) directory
 - Use `__init__.py` files to mark Python packages

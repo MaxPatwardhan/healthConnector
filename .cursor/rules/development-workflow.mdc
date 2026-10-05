@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## Environment Setup
 
-1. **Use uv for package management**: This project uses [uv](mdc:https:/github.com/astral-sh/uv) instead of pip
+1. **Use uv for package management**: This project uses [uv](https://github.com/astral-sh/uv) instead of pip
    ```bash
    uv venv --python 3.12
    source .venv/bin/activate
@@ -18,33 +18,40 @@ alwaysApply: true
    - `API_KEY` - Your Intervals.icu API key
    - `ATHLETE_ID` - Your athlete ID (digits or i-prefixed)
 
+   Credentials come only from the environment; tools never take them as arguments.
+
 ## Running the Server
 
-- **Manual Testing**: `mcp run src/intervals_mcp_server/server.py`
-- **Claude Desktop Integration**: Use `mcp install` command as documented in [README.md](mdc:README.md)
+- **Manual Testing (stdio)**: `uv run python src/intervals_mcp_server/server.py`
+- **HTTP**: `MCP_TRANSPORT=http uv run python src/intervals_mcp_server/server.py` (serves `http://127.0.0.1:8000/mcp`)
+- **fastmcp CLI**: `uv run fastmcp run src/intervals_mcp_server/server.py:mcp` (the same entrypoint Prefect Horizon deploys)
+- **Claude Desktop Integration**: Configure the client to launch the stdio command above, as documented in [README.md](mdc:README.md)
 
 ## Code Quality Checks
 
-Before committing, ensure all three checks pass:
+Before committing, ensure all three checks pass (CI runs them in [.github/workflows/ci.yml](mdc:.github/workflows/ci.yml)):
 
-1. **Linting**: `ruff .` - Uses default ruff rules, config in [pyproject.toml](mdc:pyproject.toml)
+1. **Linting**: `ruff check .` and `ruff format --check .` - Rules configured in [pyproject.toml](mdc:pyproject.toml)
 2. **Type Checking**: `mypy src tests` - Static type analysis
 3. **Testing**: `pytest` - Unit tests in [tests/](mdc:tests) directory
 
 ## Code Organization
 
-- **Main Logic**: All MCP tools are implemented in [src/intervals_mcp_server/server.py](mdc:src/intervals_mcp_server/server.py)
+- **MCP Tools**: Implemented in [src/intervals_mcp_server/tools/](mdc:src/intervals_mcp_server/tools), one module per area; [server.py](mdc:src/intervals_mcp_server/server.py) imports and re-exports them
 - **Utilities**: Helper functions in [src/intervals_mcp_server/utils/](mdc:src/intervals_mcp_server/utils)
-- **API Communication**: `make_intervals_request()` function handles all Intervals.icu API calls
+- **API Communication**: `make_intervals_request()` in [api/client.py](mdc:src/intervals_mcp_server/api/client.py) handles all Intervals.icu API calls (GET only)
 - **Error Handling**: Comprehensive HTTP error handling with user-friendly messages
 
 ## Adding New MCP Tools
 
-1. Create async function decorated with `@mcp.tool()`
-2. Add proper type hints and docstrings
-3. Use `make_intervals_request()` for API calls
+1. Create async function decorated with `@mcp.tool(annotations=ToolAnnotations(title=..., read_only_hint=True, destructive_hint=False))`
+2. Add proper type hints and docstrings; do not add `api_key` or `athlete_id` parameters
+3. Use `make_intervals_request(url, params)` for API calls
 4. Add formatting utilities to [src/intervals_mcp_server/utils/formatting.py](mdc:src/intervals_mcp_server/utils/formatting.py) if needed
-5. Write unit tests in [tests/](mdc:tests)
+5. Re-export it in `tools/__init__.py` and `server.py`, and add it to `READ_TOOLS` in [tests/test_read_only.py](mdc:tests/test_read_only.py)
+6. Write unit tests in [tests/](mdc:tests)
+
+Never add tools that create, modify or delete data, or any non-GET request. `tests/test_read_only.py` fails if one is introduced.
 
 ## Commit Guidelines
 

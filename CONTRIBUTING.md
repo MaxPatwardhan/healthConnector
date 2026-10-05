@@ -1,6 +1,16 @@
 # Contributing to Intervals.icu MCP Server
 
-Thank you for taking the time to contribute! This project uses **Python 3.12** and manages its dependencies with [uv](https://github.com/astral-sh/uv). The following guide summarizes how to set up your environment and outlines the workflow we expect for pull requests.
+Thank you for taking the time to contribute! This project is a **read-only** MCP server for Intervals.icu. It uses **Python 3.12** and manages its dependencies with [uv](https://github.com/astral-sh/uv). The following guide summarizes how to set up your environment and outlines the workflow we expect for pull requests.
+
+## Read-only policy
+
+This server must never be able to create, modify or delete anything on Intervals.icu. Contributions must keep it that way:
+
+* Only read tools, annotated `read_only_hint=True` / `destructive_hint=False`.
+* All API access goes through `make_intervals_request(url, params)` in `api/client.py`, which only sends GET. No other module may make HTTP calls.
+* Credentials come only from the `API_KEY` and `ATHLETE_ID` environment variables; no tool takes `api_key` or `athlete_id` arguments.
+
+Pull requests that add write tools or non-GET requests will not be accepted. `tests/test_read_only.py` enforces these rules; when you add a read tool, add its name to `READ_TOOLS` there.
 
 ## Development environment
 
@@ -15,7 +25,9 @@ Thank you for taking the time to contribute! This project uses **Python 3.12** a
    ```
 3. When working on or manually running the server, use:
    ```bash
-   mcp run src/intervals_mcp_server/server.py
+   uv run python src/intervals_mcp_server/server.py                    # stdio
+   MCP_TRANSPORT=http uv run python src/intervals_mcp_server/server.py # HTTP on :8000/mcp
+   uv run fastmcp run src/intervals_mcp_server/server.py:mcp           # fastmcp CLI
    ```
 
 ## Dependency changes
@@ -26,6 +38,8 @@ Thank you for taking the time to contribute! This project uses **Python 3.12** a
 
 If you add, remove, or relax a dependency but forget to update the lock file, CI will fail. Treat `uv.lock` as a first-class artifact: review it when it changes, but don’t fear committing it.
 
+`fastmcp` and `mcp` are pinned to exact versions in `pyproject.toml` because Prefect Horizon installs from `pyproject.toml` and ignores `uv.lock`. Bump them deliberately, after re-running the tests and the OAuth flow.
+
 ## Code-only changes
 
 For changes that do not modify dependencies, keep the lock file untouched. Run your tests with:
@@ -34,7 +48,7 @@ For changes that do not modify dependencies, keep the lock file untouched. Run y
 uv run --locked pytest
 ```
 
-CI will also run `uv lock --check` to ensure `uv.lock` stays in sync.
+CI installs with `uv sync --locked`, which fails if `uv.lock` is out of sync with `pyproject.toml`. To check this locally, run `uv lock --check`.
 
 ## Why keep the lock file?
 
@@ -42,17 +56,20 @@ CI will also run `uv lock --check` to ensure `uv.lock` stays in sync.
 * **Security** – Hash pinning in `uv.lock` helps prevent supply-chain attacks.
 * **Speed** – `uv` skips resolution when the lock matches, keeping installs lightning-fast.
 
-Automated dependency upgrades are encouraged. You can use Dependabot, Renovate, or a scheduled GitHub Action that runs `uv lock --upgrade && git push` to keep the file fresh and generate tidy PRs.
+Automated dependency upgrades are encouraged. You can use Dependabot, Renovate, or a scheduled GitHub Action that runs `uv lock --upgrade && git push` to keep the file fresh and generate tidy PRs. (The exact `fastmcp`/`mcp` pins only move when `pyproject.toml` is edited.)
 
 ## Testing
 
 Before opening a pull request, ensure all checks pass locally:
 
 ```bash
-ruff check .
-mypy src tests
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy src tests
 uv run --locked pytest
 ```
+
+CI (`.github/workflows/ci.yml`) runs `uv sync --locked --all-extras` followed by these same checks on every push and pull request. The tests are fully mocked: `tests/conftest.py` pins fake credentials, so no Intervals.icu API key is needed.
 
 ## Changelog and versioning
 

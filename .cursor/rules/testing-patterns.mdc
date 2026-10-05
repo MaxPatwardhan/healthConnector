@@ -9,6 +9,8 @@ alwaysApply: true
 
 Tests are organized in the [tests/](mdc:tests) directory with the following structure:
 
+- **[tests/conftest.py](mdc:tests/conftest.py)** - Pins `API_KEY=test` / `ATHLETE_ID=i1` before imports and resets the config singleton per test (autouse fixture)
+- **[tests/test_read_only.py](mdc:tests/test_read_only.py)** - Guards the read-only guarantee (exact tool set, annotations, no credential parameters, GET only, path traversal rejected)
 - **[tests/test_server.py](mdc:tests/test_server.py)** - Main MCP tool testing
 - **[tests/test_formatting.py](mdc:tests/test_formatting.py)** - Utility function tests
 - **[tests/test_make_intervals_request.py](mdc:tests/test_make_intervals_request.py)** - API communication tests
@@ -23,7 +25,7 @@ Tests are organized in the [tests/](mdc:tests) directory with the following stru
 ## Testing Patterns
 
 ### Async Testing
-All MCP tools are async functions, so tests use:
+All MCP tools are async functions, so tests use `asyncio.run(...)` or:
 ```python
 @pytest.mark.asyncio
 async def test_function_name():
@@ -31,15 +33,18 @@ async def test_function_name():
 ```
 
 ### Mock API Responses
-HTTP requests are mocked using `pytest-mock`:
+Tool modules import `make_intervals_request` by name, so patch it on the tool module under test:
 ```python
-def test_api_call(mocker):
-    mock_response = mocker.Mock()
-    mock_response.json.return_value = {"test": "data"}
-    mock_response.raise_for_status.return_value = None
+def test_tool(monkeypatch):
+    async def fake_request(*_args, **_kwargs):
+        return {"test": "data"}
 
-    mocker.patch("httpx.AsyncClient.get", return_value=mock_response)
+    monkeypatch.setattr("intervals_mcp_server.tools.wellness.make_intervals_request", fake_request)
 ```
+To exercise the real client, set `intervals_mcp_server.server.httpx_client` to a fake object with `is_closed = False` and an async `request(**kwargs)` that returns an `httpx.Response` (see [tests/test_read_only.py](mdc:tests/test_read_only.py)). The client always calls `request(method="GET", ...)`, so patching `httpx.AsyncClient.get` has no effect.
+
+### Credentials
+`conftest.py` sets fake credentials before any server import, so tests never need (or use) a real API key. The `os.environ.setdefault(...)` lines in older test files are redundant; new files don't need them.
 
 ### Test Data Management
 - **Sample Data**: [tests/sample_data.py](mdc:tests/sample_data.py) contains realistic mock data
@@ -66,7 +71,7 @@ pytest --cov=src/intervals_mcp_server
 
 Before committing code, ensure:
 1. **All tests pass**: `pytest` returns exit code 0
-2. **No new linting errors**: `ruff .` passes
+2. **No new linting errors**: `ruff check .` and `ruff format --check .` pass
 3. **Type checking passes**: `mypy src tests` succeeds
 
 ## Writing New Tests

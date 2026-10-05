@@ -5,11 +5,13 @@ alwaysApply: true
 ---
 # Intervals.icu MCP Server Project Overview
 
-This is a Model Context Protocol (MCP) server for connecting Claude with the Intervals.icu API. The project enables Claude to retrieve and analyze athlete data including activities, events, workouts, and wellness metrics.
+This is a read-only Model Context Protocol (MCP) server for connecting Claude with the Intervals.icu API. The project enables Claude to retrieve and analyze athlete data including activities, events, workouts, wellness metrics and training plans. It cannot create, modify or delete anything on Intervals.icu.
 
 ## Project Structure
 
-- **Main Entry Point**: [src/intervals_mcp_server/server.py](mdc:src/intervals_mcp_server/server.py) - Contains the FastMCP server implementation with all MCP tools
+- **Main Entry Point**: [src/intervals_mcp_server/server.py](mdc:src/intervals_mcp_server/server.py) - Imports and re-exports all MCP tools and resources; its `mcp` object is the deploy entrypoint (`server.py:mcp`)
+- **MCP Tools**: [src/intervals_mcp_server/tools/](mdc:src/intervals_mcp_server/tools) - Tool modules, registered on the shared FastMCP instance in [mcp_instance.py](mdc:src/intervals_mcp_server/mcp_instance.py)
+- **API Client**: [src/intervals_mcp_server/api/client.py](mdc:src/intervals_mcp_server/api/client.py) - `make_intervals_request()`, the only code that makes HTTP calls (GET only)
 - **Configuration**: [pyproject.toml](mdc:pyproject.toml) - Project configuration, dependencies, and build settings
 - **Environment Setup**: [.env.example](mdc:.env.example) - Template for environment variables (API_KEY, ATHLETE_ID)
 - **Documentation**: [README.md](mdc:README.md) - Comprehensive setup and usage guide
@@ -17,24 +19,31 @@ This is a Model Context Protocol (MCP) server for connecting Claude with the Int
 
 ## Core Components
 
-### MCP Tools (in server.py)
-- `get_activities` - Retrieve athlete activities with filtering options
-- `get_activity_details` - Get detailed information for specific activities
-- `get_activity_intervals` - Get detailed interval data for activities
-- `get_events` - Retrieve upcoming events (workouts, races, etc.)
-- `get_event_by_id` - Get detailed information for specific events
-- `get_wellness_data` - Fetch wellness metrics and data
+### MCP Tools (in tools/*.py, all read-only)
+- `activities.py` - `get_activities`, `get_activity_details`, `get_activity_intervals`, `get_activity_streams`, `get_activity_histogram`, `get_activity_messages`
+- `activity_analysis.py` - `get_activity_curve`, `get_activity_best_efforts`, `get_activity_segments`, `get_activity_time_at_hr`, `get_activity_weather_summary`, `get_activity_interval_stats`, `get_activity_map`, `get_activity_power_vs_hr`, `get_activity_hr_load_model`, `get_activity_power_spike_model`
+- `activity_search.py` - `search_activities`, `interval_search`, `get_activities_around`, `get_activities_by_ids`, `get_activity_tags`
+- `events.py` - `get_events`, `get_races`, `get_event_by_id`
+- `wellness.py` - `get_wellness_data`
+- `athlete.py` / `power_curves.py` - `get_athlete_zones`, `get_athlete_power_curves`
+- `training_summary.py` / `training_plan.py` - `get_training_summary`, `get_training_plan`
+- `custom_items.py` - `get_custom_items`, `get_custom_item_by_id`
+- `workout_library.py` - `get_workout_folders`, `list_workouts`, `get_workout`
 
 ### Utilities
 - **Formatting**: [src/intervals_mcp_server/utils/formatting.py](mdc:src/intervals_mcp_server/utils/formatting.py) - Data formatting utilities for MCP responses
+- **Validation**: [src/intervals_mcp_server/utils/validation.py](mdc:src/intervals_mcp_server/utils/validation.py) - Athlete ID/date validation and `resolve_*` helpers
+- **Types**: [src/intervals_mcp_server/utils/types.py](mdc:src/intervals_mcp_server/utils/types.py) - `TransportAliases` enum only
 
 ### Testing
 - **Tests Directory**: [tests/](mdc:tests) - Unit tests for server functionality and utilities
+- **Shared Setup**: [tests/conftest.py](mdc:tests/conftest.py) - Pins fake `API_KEY`/`ATHLETE_ID` and resets config per test
+- **Read-only Guards**: [tests/test_read_only.py](mdc:tests/test_read_only.py) - Fails if a write tool, non-GET request or credential argument is added
 - **Sample Data**: [tests/sample_data.py](mdc:tests/sample_data.py) - Test data for development
 
 ## Key Technologies
 - **Python 3.12+** - Required runtime version
-- **FastMCP** - MCP server framework
+- **FastMCP** - MCP server framework (standalone `fastmcp` package, pinned exactly)
 - **httpx** - Async HTTP client for API calls
 - **uv** - Package manager and virtual environment tool
 - **pytest** - Testing framework
@@ -45,4 +54,8 @@ This is a Model Context Protocol (MCP) server for connecting Claude with the Int
 - `API_KEY` - Intervals.icu API key (required)
 - `ATHLETE_ID` - Target athlete ID (required)
 - `INTERVALS_API_BASE_URL` - API base URL (optional, defaults to intervals.icu)
-- `LOG_LEVEL` - Logging level (optional, defaults to INFO)
+- `MCP_TRANSPORT` - `stdio` (default), `sse`, `http` or `streamable-http` (optional)
+- `FASTMCP_HOST` / `FASTMCP_PORT` - HTTP bind host and port (optional, default `127.0.0.1:8000`)
+- `MCP_CLIENT_ID` / `MCP_CLIENT_SECRET` / `MCP_SERVER_URL` - Built-in OAuth, self-hosting only (never on Prefect Horizon)
+
+Credentials come only from these variables, never from tool arguments.

@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## Intervals.icu API Integration
 
-This project communicates with the Intervals.icu API using consistent patterns defined in [src/intervals_mcp_server/server.py](mdc:src/intervals_mcp_server/server.py).
+This project communicates with the Intervals.icu API using consistent patterns defined in [src/intervals_mcp_server/api/client.py](mdc:src/intervals_mcp_server/api/client.py). The server is **read-only**: it can never create, modify or delete data on Intervals.icu.
 
 ## Core API Function
 
@@ -16,14 +16,15 @@ All API communication goes through `make_intervals_request()`:
 ```python
 async def make_intervals_request(
     url: str,
-    api_key: str | None = None,
-    params: dict[str, Any] | None = None
+    params: dict[str, Any] | None = None,
 ) -> dict[str, Any] | list[dict[str, Any]]
 ```
 
 ### Usage Pattern
 - **URL Format**: Relative paths like `/athlete/{id}/activities`
-- **Authentication**: HTTP Basic Auth with username "API_KEY" and password as the API key
+- **Method**: Always GET (`_READ_ONLY_METHOD`); there is no `method`, `data` or `api_key` parameter
+- **Authentication**: HTTP Basic Auth with username "API_KEY" and password from the `API_KEY` environment variable (never from tool arguments)
+- **Path validation**: Paths may only contain `/`-separated segments of letters, digits, `-`, `_`, `.` and `,`; `.`/`..` segments are rejected, so IDs spliced into the URL cannot reach another endpoint or athlete
 - **Headers**: Includes User-Agent and Accept: application/json
 - **Timeout**: 30 seconds for all requests
 
@@ -44,32 +45,37 @@ All errors return a consistent structure:
 ```python
 {
     "error": True,
-    "status_code": int,  # HTTP status code
+    "status_code": int,  # HTTP status code (HTTP errors only)
     "message": str       # User-friendly error message
 }
 ```
 
 ## MCP Tool Implementation Pattern
 
-1. **Parameter Validation**: Check required parameters and provide defaults
-2. **API Key Resolution**: Use provided key or fall back to global `API_KEY`
-3. **Athlete ID Handling**: Support both numeric and i-prefixed formats
-4. **Date Validation**: Parse and validate date strings
-5. **API Request**: Call `make_intervals_request()` with appropriate parameters
-6. **Error Checking**: Return formatted error messages for API failures
-7. **Data Formatting**: Use utilities from [src/intervals_mcp_server/utils/formatting.py](mdc:src/intervals_mcp_server/utils/formatting.py)
+1. **Annotations**: `ToolAnnotations(title=..., read_only_hint=True, destructive_hint=False)` on every tool
+2. **Parameter Validation**: Check required parameters and provide defaults
+3. **Credentials**: Never accept `api_key` or `athlete_id` arguments; `make_intervals_request()` reads `API_KEY` from the environment
+4. **Athlete ID Handling**: `resolve_athlete_id(config.athlete_id)` returns the configured `ATHLETE_ID` (numeric or i-prefixed) or an error message
+5. **Date Validation**: Parse and validate date strings (`resolve_date_params()`)
+6. **API Request**: Call `make_intervals_request(url, params)` (GET only)
+7. **Error Checking**: Return formatted error messages for API failures
+8. **Data Formatting**: Use utilities from [src/intervals_mcp_server/utils/formatting.py](mdc:src/intervals_mcp_server/utils/formatting.py)
+
+Never add write tools or non-GET requests; [tests/test_read_only.py](mdc:tests/test_read_only.py) enforces this.
 
 ## Environment Variables
 
-Required configuration (validated on startup):
-- `API_KEY` - Cannot be empty
-- `ATHLETE_ID` - Must match pattern `r"i?\d+"` (digits or i-prefixed digits)
+Required configuration:
+- `API_KEY` - Cannot be empty (requests fail with "API key is required" otherwise)
+- `ATHLETE_ID` - Must match pattern `r"i?\d+"` (digits or i-prefixed digits); validated on startup
 
 Optional configuration:
 - `INTERVALS_API_BASE_URL` - Defaults to `https://intervals.icu/api/v1`
 
 ## Shared HTTP Client
 
-Uses a single `httpx.AsyncClient` instance (`httpx_client`) managed by the FastMCP lifespan context manager to:
+Uses a single `httpx.AsyncClient` instance (`httpx_client`), created lazily in `api/client.py` and closed by the `setup_api_client` FastMCP lifespan context manager, to:
 - Reuse connections for better performance
 - Ensure proper cleanup when server stops
+
+`api/client.py` is the only module that may import `httpx` (or any HTTP library).
