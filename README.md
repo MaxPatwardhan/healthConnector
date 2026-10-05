@@ -1,262 +1,155 @@
-# Intervals.icu MCP Server
+# healthConnector — read-only Intervals.icu MCP server
 
-Model Context Protocol (MCP) server for connecting Claude and ChatGPT with the Intervals.icu API. It provides tools for retrieving activities, events, wellness data, power curves, and more.
+A **read-only** [Model Context Protocol](https://modelcontextprotocol.io) server that lets Claude (web, desktop and mobile) read your [Intervals.icu](https://intervals.icu) data through a custom connector: activities, wellness, events, training load, zones, power curves, workouts and plans.
 
-If you find the MCP server useful, please consider supporting its continued development with a donation.
+Data path: **watch → Garmin Connect → Intervals.icu → this server → Claude.** The server talks only to the Intervals.icu API, using a personal API key. It never talks to Garmin directly.
+
+This is a fork of [abamy/intervals-mcp-server](https://github.com/abamy/intervals-mcp-server) (imported at `6d2a7c2`), which is itself a fork of [mvilanova/intervals-mcp-server](https://github.com/mvilanova/intervals-mcp-server). It is licensed under GPL-3.0, like upstream.
+
+## What this fork changes
+
+- **No write tools.** The 22 tools that could create, edit or delete data on Intervals.icu are gone, along with their helpers and tests. That covers activities, intervals, events, workouts, custom items and training plans. 34 read tools remain ([list below](#tools)).
+- **GET only.** The API client has no way to send any other HTTP method. IDs that tools put into URL paths are validated, so an argument like `../athlete/i999/wellness` can't reach a different endpoint or athlete.
+- **Credentials only from the environment.** No tool accepts `api_key` or `athlete_id`. The server uses `API_KEY` and `ATHLETE_ID` from its environment and nothing else.
+- **Enforced by tests.** [`tests/test_read_only.py`](tests/test_read_only.py) fails if a non-read-only tool, a write HTTP verb, a credential argument or a path-traversal hole comes back.
+- **Pinned dependencies.** `fastmcp` and `mcp` are pinned to exact versions in `pyproject.toml`, because Prefect Horizon installs from `pyproject.toml` and ignores `uv.lock`.
 
 ## Prerequisites
 
-Before you begin you'll need your Intervals.icu credentials:
+1. **Intervals.icu API key.** In Intervals.icu go to **Settings**, then the **Developer Settings / API** section, and generate a key.
+2. **Athlete ID.** The `iNNNNN` in the URL when you're logged in, e.g. `https://intervals.icu/athlete/i12345/...` gives `i12345`.
+3. **Garmin wellness sync.** On the Garmin card in Intervals.icu **Settings**, make sure **Download wellness data** is ticked. Use **Download old data** to backfill history.
 
-1. **API Key** — Log in to [Intervals.icu](https://intervals.icu), go to **Settings → API**, and generate a new API key.
-2. **Athlete ID** — Visible in the URL when you're logged in, e.g. `https://intervals.icu/athlete/i12345/...` → `i12345`.
+## Deploy on Prefect Horizon (formerly FastMCP Cloud)
 
-## Setup — Deploy to FastMCP Cloud
+Horizon hosts FastMCP servers from a GitHub repo. It has a free personal tier and puts an OAuth gateway in front of every server, so only you (your Horizon account) can connect.
 
-1. Sign in at [horizon.prefect.io](https://horizon.prefect.io) and connect your GitHub account.
-2. Create a new server from your `intervals-mcp-server` fork/repo (branch `develop`). This repo's [`fastmcp.json`](fastmcp.json) already points it at the entrypoint (`src/intervals_mcp_server/server.py`) and dependencies (`pyproject.toml`/`uv.lock`) — leave **Requirements** blank in the deploy form.
-3. Set environment variables:
+1. Sign in at [horizon.prefect.io](https://horizon.prefect.io) with GitHub. When asked, install the Horizon GitHub app and grant it access to `MaxPatwardhan/healthConnector`.
+2. Create a new server from that repo:
+   - **Server name:** anything, e.g. `intervals`. It becomes the subdomain, `https://<server-name>.fastmcp.app`.
+   - **Entrypoint:** `src/intervals_mcp_server/server.py:mcp`
+   - **Requirements / dependency file:** leave blank. Dependencies come from `pyproject.toml`.
+3. Under **Settings → Environment Variables**, add the following for **Production**. Both are stored as sensitive values.
 
    | Key | Value |
    |-----|-------|
-   | `ATHLETE_ID` | Your Intervals.icu athlete ID (e.g. `i12345`) |
    | `API_KEY` | Your Intervals.icu API key |
+   | `ATHLETE_ID` | Your athlete ID, e.g. `i12345` |
 
-   Don't set `MCP_CLIENT_ID`/`MCP_CLIENT_SECRET`/`MCP_SERVER_URL`/`MCP_TRANSPORT` — see note below.
-4. Deploy. Your server URL is `https://<server-name>.fastmcp.app/mcp`.
+   **Don't** set `MCP_CLIENT_ID`, `MCP_CLIENT_SECRET`, `MCP_SERVER_URL` or `MCP_TRANSPORT` on Horizon. Horizon's gateway already handles OAuth. Turning on this app's own OAuth as well creates a second auth layer, which shows up as a connector with no tools or as 403 / JSON-RPC `-32603` errors.
+4. Deploy. Production builds track the repo's **default branch**: every push to it rebuilds the server. Your server URL is `https://<server-name>.fastmcp.app/mcp`.
 
-<details>
-<summary>OAuth details & troubleshooting</summary>
+If you change an environment variable, redeploy so it takes effect.
 
-FastMCP Cloud puts its own OAuth gateway ("Horizon Authentication") in front of every deployment; on the free tier it can't be disabled. It fully replaces this app's own `SingleClientOAuthProvider`, so `MCP_CLIENT_ID`/`MCP_CLIENT_SECRET`/`MCP_SERVER_URL` are never reached and shouldn't be set here — that env-var trio is only for genuinely self-hosting this app elsewhere (see `auth.py`).
+## Connect it to Claude
 
-When connecting a client, use **"Register automatically" (DCR)** for Client OAuth, not "use your own OAuth client" — you'll be prompted to log into your Horizon account, which is the actual access gate on this platform.
+Connectors are account-wide, so one added on claude.ai also shows up in Claude Desktop and the mobile apps.
 
-**Connector shows no tools, or tool calls return 403 / JSON-RPC `-32603`:** almost always leftover `MCP_CLIENT_ID`/`MCP_CLIENT_SECRET`/`MCP_SERVER_URL` env vars causing a double auth layer (Horizon's gateway forwards its own token, which this app's own OAuth then rejects). Delete those three vars, redeploy, reconnect.
+1. In Claude, open **Customize → Connectors** (older layouts: **Settings → Connectors**). Choose **Add → Add custom connector**.
+2. **Name:** `intervals`. Don't put a dot in the name: connectors with a dot in their name have been reported to connect but expose no tools.
+3. **URL:** `https://<server-name>.fastmcp.app/mcp`. It must end in `/mcp`.
+4. Authentication:
+   - **Horizon:** sign in with OAuth. If you're offered a choice of OAuth client, pick **Register automatically**. Leave client ID and secret empty. When the browser opens, log in with your **Horizon account**.
+   - **Self-hosted** ([below](#self-hosting-in-a-container)): under **Advanced settings** (or **Use your own OAuth client**), enter your `MCP_CLIENT_ID` and `MCP_CLIENT_SECRET`.
+5. In a chat, open **+ → Connectors** and turn on `intervals`. Every tool is read-only, so you can set its tool permissions to **Always allow**.
 
-</details>
+Then ask something like *"Show my wellness data for the last 14 days"*.
 
-## Connecting Claude
+The Claude Free plan allows one custom connector. You can't change a connector's authentication settings after adding it; to change them, remove the connector and add it again.
 
-1. Open Claude → **Settings** → **Integrations** (or **MCP Servers**) → **Add**
-2. **Name:** `Intervals.icu`, **URL:** `https://<server-name>.fastmcp.app/mcp`
-3. For Client OAuth, pick **"Register automatically" (DCR)** and log in with your Horizon account when prompted
+## Self-hosting in a container
 
-Open a new conversation and ask "What MCP tools do you have available?" to confirm the connection.
+Use this if Horizon doesn't suit you. The included `Dockerfile` runs stdio by default, so set these variables on the container host:
 
-## Connecting ChatGPT
+| Key | Value |
+|-----|-------|
+| `API_KEY`, `ATHLETE_ID` | Your Intervals.icu credentials |
+| `MCP_TRANSPORT` | `http` |
+| `FASTMCP_HOST` | `0.0.0.0` |
+| `FASTMCP_PORT` | The port the platform routes to (the server doesn't read `$PORT`) |
+| `MCP_CLIENT_ID` | Any identifier, e.g. `intervals` |
+| `MCP_CLIENT_SECRET` | A long random secret: `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
+| `MCP_SERVER_URL` | The public HTTPS base URL, **without** `/mcp`, e.g. `https://intervals.example.com` |
 
-1. In ChatGPT, open **Settings → Features → Custom MCP Connectors** → **Add**
-2. Fill in:
-   - **Name**: `Intervals.icu`
-   - **MCP Server URL**: `https://your-server-name.fastmcp.app/mcp`
+With `MCP_CLIENT_ID` and `MCP_CLIENT_SECRET` set, the server runs its own minimal OAuth server ([`auth.py`](src/intervals_mcp_server/auth.py)): authorization code + PKCE, auto-approved, one pre-registered client, no dynamic registration and no refresh tokens. It hands out the client secret as the bearer token. So **the secret is the key to your data**: keep it long and random, and rotate it by changing the variable and re-adding the connector.
 
-Save the connector and open a new chat.
+Without those two variables, the HTTP endpoint is **unauthenticated**.
 
-## Available Tools
+Run exactly one instance. Pending authorization codes live in memory.
 
-Once connected, the following tools are available:
+## Tools
 
-**Activities**
-- `get_activities` — Retrieve a list of activities
-- `get_activity_details` — Get detailed information for a specific activity
-- `get_activity_intervals` — Get interval data for a specific activity
-- `get_activity_streams` — Get time-series stream data (power, HR, cadence, etc.)
-- `get_activity_histogram` — Get a power, heart rate, pace, or gap histogram
-- `get_activity_messages` — Get messages/comments on an activity
-- `add_activity_message` — Add a message/comment to an activity
-- `update_activity`, `delete_activity`, `create_manual_activity`, `bulk_create_manual_activities` — Edit, remove, or create activities
+All 34 tools are annotated `readOnlyHint: true, destructiveHint: false`.
 
-**Activity analysis**
-- `get_activity_curve`, `get_activity_best_efforts`, `get_activity_segments`, `get_activity_interval_stats`, `get_activity_map`, `get_activity_power_vs_hr`, `get_activity_hr_load_model`, `get_activity_power_spike_model`, `get_activity_time_at_hr`, `get_activity_weather_summary`
+- **Wellness & training load:** `get_wellness_data`, `get_training_summary`, `get_athlete_zones`, `get_athlete_power_curves`
+- **Activities:** `get_activities`, `get_activity_details`, `get_activity_intervals`, `get_activity_streams`, `get_activity_histogram`, `get_activity_messages`
+- **Activity analysis:** `get_activity_curve`, `get_activity_best_efforts`, `get_activity_segments`, `get_activity_time_at_hr`, `get_activity_weather_summary`, `get_activity_interval_stats`, `get_activity_map`, `get_activity_power_vs_hr`, `get_activity_hr_load_model`, `get_activity_power_spike_model`
+- **Activity search:** `search_activities`, `interval_search`, `get_activities_around`, `get_activities_by_ids`, `get_activity_tags`
+- **Calendar:** `get_events`, `get_races`, `get_event_by_id`, `get_training_plan`
+- **Workout library:** `get_workout_folders`, `list_workouts`, `get_workout`
+- **Custom items:** `get_custom_items`, `get_custom_item_by_id`
 
-**Activity search & interval editing**
-- `search_activities`, `interval_search`, `get_activities_around`, `get_activities_by_ids`, `get_activity_tags`
-- `update_activity_intervals`, `update_activity_interval`, `delete_activity_intervals`, `split_activity_interval`
+The server also publishes a usage-guide resource, `intervals-icu://guide`.
 
-**Events**
-- `get_events` — Retrieve upcoming events (workouts, races, etc.)
-- `get_event_by_id` — Get detailed information for a specific event
-- `add_or_update_event` — Create or update an event
-- `delete_event` — Delete a specific event
-- `delete_events_by_date_range` — Delete events within a date range
+### Wellness fields from Garmin
 
-**Wellness & Training**
-- `get_wellness_data` — Fetch wellness data
-- `get_training_summary` — Get a training load summary
-- `get_athlete_power_curves` — Get best power output curves for selected durations and time periods
-- `get_athlete_zones` — Get athlete training zones (power, HR, pace, etc.)
+`get_wellness_data` returns whatever Intervals.icu holds for each day. With the Garmin sync, Intervals.icu imports resting HR, overnight HRV (rMSSD), sleep duration, sleep score and quality, weight, body fat, steps, VO2max and SpO2. SpO2 is often missing.
 
-**Training Plans**
-- `get_training_plan`, `change_training_plan`, `apply_plan_changes`, `apply_plan_to_calendar`, `change_athlete_plans_bulk`
+Garmin's **stress score is not imported**. The `stress` field is Intervals.icu's own subjective 1–4 rating. **Body Battery** only arrives if you have created the custom wellness fields `BodyBatteryMin` / `BodyBatteryMax`, and the tool shows custom fields only with `include_all_fields=True`. Training readiness, respiration and average sleeping HR don't come from Garmin.
 
-**Custom Items**
-- `get_custom_items` — List custom items
-- `get_custom_item_by_id` — Get a specific custom item
-- `create_custom_item` — Create a new custom item
-- `update_custom_item` — Update an existing custom item
-- `delete_custom_item` — Delete a custom item
+## Local development
 
-**Workout Library**
-- `get_workout_folders` — Get workout library folder metadata (IDs, names, types)
-- `list_workouts` — List workouts in the library, optionally filtered by folder
-- `get_workout` — Get full workout detail including step-by-step structure
-- `create_workout` — Create a new workout in a library folder
-- `update_workout` — Update an existing library workout
-- `schedule_workout` — Schedule a library workout onto the calendar
-
-> **Structured workouts:** pass steps via `workout_doc`. The server renders them to Intervals.icu workout-builder text so the platform parses them and draws the step chart. Use renderable target units — power `%ftp`/`w`, HR `%hr`/`%lthr`, pace `%pace` or absolute pace (e.g. `4:30/km`); avoid `pace_zone`/`power_zone` for pace runs.
-
----
-
-<details>
-<summary><strong>Local Setup (alternative)</strong></summary>
-
-If you prefer to run the server on your own machine instead of FastMCP Cloud, follow the steps below.
-
-### Requirements
-
-- Python 3.12 or higher
-- [uv](https://github.com/astral-sh/uv) (recommended package manager)
-
-### 1. Install uv
+Requires Python 3.12+ and [uv](https://github.com/astral-sh/uv).
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+git clone https://github.com/MaxPatwardhan/healthConnector.git
+cd healthConnector
+uv sync --all-extras
+cp .env.example .env    # then fill in API_KEY and ATHLETE_ID; .env is gitignored
 ```
 
-### 2. Clone and install
+Run checks (CI runs the same steps in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
 
 ```bash
-git clone https://github.com/mvilanova/intervals-mcp-server.git
-cd intervals-mcp-server
-uv venv --python 3.12
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-uv sync
+uv run ruff check . && uv run ruff format --check . && uv run mypy src tests && uv run pytest
 ```
 
-### 3. Set up environment variables
+The tests are fully mocked and pin fake credentials. They never call Intervals.icu.
+
+Run the server:
 
 ```bash
-cp .env.example .env
+uv run python src/intervals_mcp_server/server.py                      # stdio (Claude Desktop)
+MCP_TRANSPORT=http uv run python src/intervals_mcp_server/server.py   # http://127.0.0.1:8000/mcp
 ```
 
-Edit `.env` and fill in your credentials:
-
-```
-API_KEY=your_intervals_api_key_here
-ATHLETE_ID=your_athlete_id_here
-```
-
-### Configure Claude Desktop
-
-1. From the project directory, run:
-
-   ```bash
-   mcp install src/intervals_mcp_server/server.py --name "Intervals.icu" --with-editable . --env-file .env
-   ```
-
-2. Your `claude_desktop_config.json` should look like:
-
-   ```json
-   {
-     "mcpServers": {
-       "Intervals.icu": {
-         "command": "/Users/<USERNAME>/.cargo/bin/uv",
-         "args": [
-           "run",
-           "--with", "mcp[cli]",
-           "--with-editable", "/path/to/intervals-mcp-server",
-           "mcp", "run",
-           "/path/to/intervals-mcp-server/src/intervals_mcp_server/server.py"
-         ],
-         "env": {
-           "INTERVALS_API_BASE_URL": "https://intervals.icu/api/v1",
-           "ATHLETE_ID": "<YOUR_ATHLETE_ID>",
-           "API_KEY": "<YOUR_API_KEY>",
-           "LOG_LEVEL": "INFO"
-         }
-       }
-     }
-   }
-   ```
-
-   Replace `/path/to/` with the actual path. If you see `spawn uv ENOENT` errors, use the full path from `which uv`.
-
-3. Restart Claude Desktop.
-
-### Configure ChatGPT (local)
-
-1. Start the server in HTTP mode:
-
-   ```bash
-   export FASTMCP_HOST=127.0.0.1 FASTMCP_PORT=8765 MCP_TRANSPORT=http FASTMCP_LOG_LEVEL=INFO
-   python src/intervals_mcp_server/server.py
-   ```
-
-2. ChatGPT needs a public URL, so forward the port (e.g. `ngrok http 8765`).
-
-3. In ChatGPT, open **Settings → Features → Custom MCP Connectors** → **Add**:
-   - **Name**: `Intervals.icu`
-   - **MCP Server URL**: `https://<your-public-host>/mcp`
-
-### Updating
-
-```bash
-git checkout main && git pull
-source .venv/bin/activate
-uv sync
-```
-
-If Claude Desktop fails after an update, delete the entry in `claude_desktop_config.json` and re-run the `mcp install` command above.
-
-### Enabling debug logging
-
-Modify `claude_desktop_config.json` to redirect stderr to a log file:
+To use it locally from Claude Desktop, add an entry to `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
-    "Intervals.icu": {
-      "command": "/bin/bash",
-      "args": [
-        "-c",
-        "/Users/<USERNAME>/.local/bin/uv run --with 'mcp[cli]' --with-editable /path/to/intervals-mcp-server mcp run /path/to/intervals-mcp-server/src/intervals_mcp_server/server.py 2>> /path/to/intervals-mcp-server/mcp-server.log"
-      ],
-      "env": {
-        "INTERVALS_API_BASE_URL": "https://intervals.icu/api/v1",
-        "ATHLETE_ID": "<YOUR_ATHLETE_ID>",
-        "API_KEY": "<YOUR_API_KEY>",
-        "LOG_LEVEL": "INFO"
-      }
+    "intervals": {
+      "command": "uv",
+      "args": ["--directory", "/path/to/healthConnector", "run", "python", "src/intervals_mcp_server/server.py"]
     }
   }
 }
 ```
 
-Then tail the log:
+The server picks up `API_KEY` and `ATHLETE_ID` from the `.env` file in the repo directory.
+
+### Checking a running server
 
 ```bash
-tail -f /path/to/intervals-mcp-server/mcp-server.log
+# Which wellness fields your account actually has, for the last 14 days (reads .env)
+uv run python scripts/wellness_field_report.py 14
+
+# List tools over HTTP, fail on anything mutating, and fetch 14 days of wellness
+uv run python scripts/verify_server.py http://127.0.0.1:8000/mcp --days 14
 ```
 
-</details>
-
-## Development and testing
-
-Install development dependencies and run the test suite with:
-
-```bash
-uv sync --all-extras
-pytest -v tests
-```
-
-### Running the server locally
-
-```bash
-mcp run src/intervals_mcp_server/server.py
-```
+For a Horizon deployment, put a Horizon API key (`fmcp_...`, created under your user menu → **API Keys**) in an environment variable and pass its name, for example `--token-env HORIZON_TOKEN`. Pass the variable's name, not the key itself; the script never prints the token.
 
 ## License
 
-The GNU General Public License v3.0
+GPL-3.0. See [LICENSE](LICENSE). Original work by Marc Vilanova and contributors ([mvilanova/intervals-mcp-server](https://github.com/mvilanova/intervals-mcp-server)), with changes from [abamy/intervals-mcp-server](https://github.com/abamy/intervals-mcp-server).
