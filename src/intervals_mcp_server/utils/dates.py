@@ -22,42 +22,6 @@ def get_date_days_ahead(days_ahead: int = 30) -> str:
     return (datetime.now() + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
 
 
-def get_default_start_date(days_ago: int = 30) -> str:
-    """
-    Get a default start date string in YYYY-MM-DD format.
-
-    Args:
-        days_ago: Number of days ago from today. Defaults to 30.
-
-    Returns:
-        Date string in YYYY-MM-DD format.
-    """
-    return get_date_days_ago(days_ago)
-
-
-def get_default_end_date() -> str:
-    """
-    Get today's date string in YYYY-MM-DD format.
-
-    Returns:
-        Date string in YYYY-MM-DD format.
-    """
-    return get_todays_date()
-
-
-def get_default_future_end_date(days_ahead: int = 30) -> str:
-    """
-    Get a default future end date string in YYYY-MM-DD format.
-
-    Args:
-        days_ahead: Number of days ahead from today. Defaults to 30.
-
-    Returns:
-        Date string in YYYY-MM-DD format.
-    """
-    return get_date_days_ahead(days_ahead)
-
-
 def parse_date_range(
     start_date: str | None, end_date: str | None, default_start_days_ago: int = 30
 ) -> tuple[str, str]:

@@ -9,7 +9,6 @@ from intervals_mcp_server.utils.formatting import (
     WELLNESS_FIELDS,
     format_activity_compact,
     format_activity_summary,
-    format_workout,
     format_wellness_entry,
     format_event_compact,
     format_event_summary,
@@ -125,23 +124,6 @@ def test_format_activity_compact():
     assert "HR:155" in result
     # Should be a single line
     assert "\n" not in result
-
-
-def test_format_workout():
-    """
-    Test that format_workout returns a string containing the workout name and interval count.
-    """
-    workout = {
-        "name": "Workout1",
-        "description": "desc",
-        "sport": "Ride",
-        "duration": 3600,
-        "tss": 50,
-        "intervals": [1, 2, 3],
-    }
-    result = format_workout(workout)
-    assert "Workout: Workout1" in result
-    assert "Intervals: 3" in result
 
 
 def test_format_wellness_entry():

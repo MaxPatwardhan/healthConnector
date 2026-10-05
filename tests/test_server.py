@@ -27,8 +27,6 @@ os.environ.setdefault("API_KEY", "test")
 os.environ.setdefault("ATHLETE_ID", "i1")
 
 from intervals_mcp_server.server import (  # pylint: disable=wrong-import-position
-    add_activity_message,
-    add_or_update_event,
     get_activities,
     get_activity_details,
     get_activity_intervals,
@@ -43,9 +41,6 @@ from intervals_mcp_server.server import (  # pylint: disable=wrong-import-positi
     get_wellness_data,
     get_custom_items,
     get_custom_item_by_id,
-    create_custom_item,
-    update_custom_item,
-    delete_custom_item,
 )
 from tests.sample_data import INTERVALS_DATA, POWER_CURVES_DATA, SPORT_SETTINGS_DATA  # pylint: disable=wrong-import-position
 
@@ -73,7 +68,6 @@ def test_get_activities(monkeypatch):
     )
     result = asyncio.run(
         get_activities(
-            athlete_id="1",
             start_date="2024-01-01",
             end_date="2024-01-01",
             limit=1,
@@ -212,7 +206,7 @@ def test_get_events(monkeypatch):
     # Patch in both api.client and tools modules to ensure it works
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.events.make_intervals_request", fake_request)
-    result = asyncio.run(get_events(athlete_id="1", start_date="2024-01-01", end_date="2024-01-02"))
+    result = asyncio.run(get_events(start_date="2024-01-01", end_date="2024-01-02"))
     assert "Test Event" in result
     assert "Events:" in result
 
@@ -230,7 +224,7 @@ def test_get_events_filter_by_single_category(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.events.make_intervals_request", fake_request)
     result = asyncio.run(
-        get_events(athlete_id="1", start_date="2024-01-01", end_date="2024-01-02", category="NOTE")
+        get_events(start_date="2024-01-01", end_date="2024-01-02", category="NOTE")
     )
     assert "Block 1" in result
     assert captured_kwargs["params"]["category"] == "NOTE"
@@ -253,7 +247,6 @@ def test_get_events_filter_by_multiple_categories(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.tools.events.make_intervals_request", fake_request)
     result = asyncio.run(
         get_events(
-            athlete_id="1",
             start_date="2024-01-01",
             end_date="2024-01-03",
             category="HOLIDAY,RACE_A",
@@ -275,7 +268,7 @@ def test_get_events_filter_no_match(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.events.make_intervals_request", fake_request)
     result = asyncio.run(
-        get_events(athlete_id="1", start_date="2024-01-01", end_date="2024-01-02", category="NOTE")
+        get_events(start_date="2024-01-01", end_date="2024-01-02", category="NOTE")
     )
     assert "No events found" in result
 
@@ -297,7 +290,7 @@ def test_get_events_no_category_returns_all(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.events.make_intervals_request", fake_request)
-    result = asyncio.run(get_events(athlete_id="1", start_date="2024-01-01", end_date="2024-01-02"))
+    result = asyncio.run(get_events(start_date="2024-01-01", end_date="2024-01-02"))
     assert "Workout A" in result
     assert "Block 1" in result
     assert "Christmas" in result
@@ -317,7 +310,7 @@ def test_get_events_category_case_insensitive(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.events.make_intervals_request", fake_request)
     result = asyncio.run(
-        get_events(athlete_id="1", start_date="2024-01-01", end_date="2024-01-02", category="note")
+        get_events(start_date="2024-01-01", end_date="2024-01-02", category="note")
     )
     assert "Block 1" in result
     assert captured_kwargs["params"]["category"] == "NOTE"
@@ -334,9 +327,7 @@ def test_get_events_invalid_category(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.events.make_intervals_request", fake_request)
     result = asyncio.run(
-        get_events(
-            athlete_id="1", start_date="2024-01-01", end_date="2024-01-02", category="INVALID"
-        )
+        get_events(start_date="2024-01-01", end_date="2024-01-02", category="INVALID")
     )
     assert "Error: Invalid event category" in result
     assert "INVALID" in result
@@ -354,9 +345,7 @@ def test_get_events_mixed_valid_and_invalid_category(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.events.make_intervals_request", fake_request)
     result = asyncio.run(
-        get_events(
-            athlete_id="1", start_date="2024-01-01", end_date="2024-01-02", category="NOTE,BOGUS"
-        )
+        get_events(start_date="2024-01-01", end_date="2024-01-02", category="NOTE,BOGUS")
     )
     assert "Error: Invalid event category" in result
     assert "BOGUS" in result
@@ -380,7 +369,7 @@ def test_get_event_by_id(monkeypatch):
     # Patch in both api.client and tools modules to ensure it works
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.events.make_intervals_request", fake_request)
-    result = asyncio.run(get_event_by_id("e1", athlete_id="1"))
+    result = asyncio.run(get_event_by_id("e1"))
     assert "Event Details:" in result
     assert "Test Event" in result
 
@@ -400,7 +389,7 @@ def test_get_races(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.events.make_intervals_request", fake_request)
-    result = asyncio.run(get_races(athlete_id="1", start_date="2024-01-01", end_date="2024-12-31"))
+    result = asyncio.run(get_races(start_date="2024-01-01", end_date="2024-12-31"))
     assert "Races:" in result
     assert "Spring Marathon" in result
     assert "Autumn 10K" in result
@@ -419,7 +408,7 @@ def test_get_races_passes_race_categories(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.events.make_intervals_request", fake_request)
-    result = asyncio.run(get_races(athlete_id="1", start_date="2024-01-01", end_date="2024-12-31"))
+    result = asyncio.run(get_races(start_date="2024-01-01", end_date="2024-12-31"))
     assert "Big Race" in result
     assert captured_kwargs["params"]["category"] == "RACE_A,RACE_B,RACE_C"
 
@@ -434,7 +423,7 @@ def test_get_races_no_results(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.events.make_intervals_request", fake_request)
-    result = asyncio.run(get_races(athlete_id="1", start_date="2024-01-01", end_date="2024-12-31"))
+    result = asyncio.run(get_races(start_date="2024-01-01", end_date="2024-12-31"))
     assert "No races found" in result
 
 
@@ -448,7 +437,7 @@ def test_get_races_api_error(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.events.make_intervals_request", fake_request)
-    result = asyncio.run(get_races(athlete_id="1", start_date="2024-01-01", end_date="2024-12-31"))
+    result = asyncio.run(get_races(start_date="2024-01-01", end_date="2024-12-31"))
     assert "Error fetching races" in result
 
 
@@ -466,7 +455,7 @@ def test_get_races_default_dates(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.events.make_intervals_request", fake_request)
-    asyncio.run(get_races(athlete_id="1"))
+    asyncio.run(get_races())
 
     today = datetime.now().strftime("%Y-%m-%d")
     future = (datetime.now() + timedelta(days=365)).strftime("%Y-%m-%d")
@@ -492,7 +481,7 @@ def test_get_wellness_data(monkeypatch):
     # Patch in both api.client and tools modules to ensure it works
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.wellness.make_intervals_request", fake_request)
-    result = asyncio.run(get_wellness_data(athlete_id="1"))
+    result = asyncio.run(get_wellness_data())
     assert "Wellness Data:" in result
     assert "2024-01-01" in result
 
@@ -510,7 +499,7 @@ def test_get_wellness_data_with_fields(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.wellness.make_intervals_request", fake_request)
-    result = asyncio.run(get_wellness_data(athlete_id="1", fields=["vital_signs"]))
+    result = asyncio.run(get_wellness_data(fields=["vital_signs"]))
     assert "Vital Signs:" in result
     assert "Training Metrics:" not in result
     assert "Sleep & Recovery:" not in result
@@ -520,7 +509,7 @@ def test_get_wellness_data_invalid_fields(monkeypatch):
     """
     Test that get_wellness_data rejects invalid field names.
     """
-    result = asyncio.run(get_wellness_data(athlete_id="1", fields=["invalid_field"]))
+    result = asyncio.run(get_wellness_data(fields=["invalid_field"]))
     assert "Invalid field(s)" in result
 
 
@@ -535,7 +524,7 @@ def test_get_wellness_data_with_cadence(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.wellness.make_intervals_request", fake_request)
-    result = asyncio.run(get_wellness_data(athlete_id="1", cadence=7))
+    result = asyncio.run(get_wellness_data(cadence=7))
     # 14 entries with cadence=7 -> entries at index 0 and 7 -> days 01 and 08
     assert "2024-01-01" in result
     assert "2024-01-08" in result
@@ -547,7 +536,7 @@ def test_get_wellness_data_cadence_invalid(monkeypatch):
     """
     Test that cadence < 1 returns an error message.
     """
-    result = asyncio.run(get_wellness_data(athlete_id="1", cadence=-1))
+    result = asyncio.run(get_wellness_data(cadence=-1))
     assert "Cadence must be a positive integer" in result
 
 
@@ -569,7 +558,7 @@ def test_get_wellness_data_include_all_fields(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.wellness.make_intervals_request", fake_request)
-    result = asyncio.run(get_wellness_data(athlete_id="1", include_all_fields=True))
+    result = asyncio.run(get_wellness_data(include_all_fields=True))
     assert "Wellness Data:" in result
     assert "2024-01-01" in result
     assert "Fitness (CTL): 75" in result
@@ -704,35 +693,6 @@ def test_get_activity_streams(monkeypatch):
     assert "Data Points: 11" in result
 
 
-def test_add_or_update_event(monkeypatch):
-    """
-    Test add_or_update_event successfully posts an event and returns the response data.
-    """
-    expected_response = {
-        "id": "e123",
-        "start_date_local": "2024-01-15T00:00:00",
-        "category": "WORKOUT",
-        "name": "Test Workout",
-        "type": "Ride",
-    }
-
-    async def fake_post_request(*_args, **_kwargs):
-        return expected_response
-
-    # Patch in both api.client and tools modules to ensure it works
-    monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_post_request)
-    monkeypatch.setattr(
-        "intervals_mcp_server.tools.events.make_intervals_request", fake_post_request
-    )
-    result = asyncio.run(
-        add_or_update_event(
-            athlete_id="i1", start_date="2024-01-15", name="Test Workout", workout_type="Ride"
-        )
-    )
-    assert "Successfully created event id:" in result
-    assert "e123" in result
-
-
 def test_get_activity_messages(monkeypatch):
     """Test get_activity_messages returns formatted messages for an activity."""
     sample_messages = [
@@ -795,66 +755,6 @@ def test_get_activity_messages_empty(monkeypatch):
     assert "No messages found" in result
 
 
-def test_add_activity_message(monkeypatch):
-    """Test add_activity_message posts a message and returns confirmation."""
-
-    async def fake_request(*_args, **kwargs):
-        assert kwargs.get("method") == "POST"
-        assert kwargs.get("data") == {"content": "Great run!"}
-        return {"id": 42, "new_chat": None}
-
-    monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
-    monkeypatch.setattr(
-        "intervals_mcp_server.tools.activities.make_intervals_request", fake_request
-    )
-    result = asyncio.run(add_activity_message(activity_id="i123", content="Great run!"))
-    assert "Successfully added message" in result
-    assert "42" in result
-
-
-def test_add_activity_message_missing_id(monkeypatch):
-    """Test add_activity_message warns when response has no ID."""
-
-    async def fake_request(*_args, **_kwargs):
-        return {"new_chat": None}
-
-    monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
-    monkeypatch.setattr(
-        "intervals_mcp_server.tools.activities.make_intervals_request", fake_request
-    )
-    result = asyncio.run(add_activity_message(activity_id="i123", content="Hello"))
-    assert "appears to have been added" in result
-    assert "verify manually" in result
-
-
-def test_add_activity_message_unexpected_response(monkeypatch):
-    """Test add_activity_message handles unexpected non-dict response."""
-
-    async def fake_request(*_args, **_kwargs):
-        return None
-
-    monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
-    monkeypatch.setattr(
-        "intervals_mcp_server.tools.activities.make_intervals_request", fake_request
-    )
-    result = asyncio.run(add_activity_message(activity_id="i123", content="Hello"))
-    assert "Unexpected response" in result
-
-
-def test_add_activity_message_error(monkeypatch):
-    """Test add_activity_message handles API errors."""
-
-    async def fake_request(*_args, **_kwargs):
-        return {"error": True, "message": "Not found"}
-
-    monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
-    monkeypatch.setattr(
-        "intervals_mcp_server.tools.activities.make_intervals_request", fake_request
-    )
-    result = asyncio.run(add_activity_message(activity_id="i999", content="Hello"))
-    assert "Error adding message" in result
-
-
 def test_get_athlete_power_curves(monkeypatch):
     """
     Test get_athlete_power_curves returns formatted power curve data with both seasons.
@@ -870,7 +770,6 @@ def test_get_athlete_power_curves(monkeypatch):
     result = asyncio.run(
         get_athlete_power_curves(
             activity_type="Ride",
-            athlete_id="i1",
         )
     )
     assert "Power Curves (Ride):" in result
@@ -897,7 +796,6 @@ def test_get_athlete_power_curves_custom_durations(monkeypatch):
         get_athlete_power_curves(
             activity_type="Ride",
             durations=[5, 60],
-            athlete_id="i1",
         )
     )
     assert "5s:" in result
@@ -923,7 +821,6 @@ def test_get_athlete_power_curves_without_normalised(monkeypatch):
         get_athlete_power_curves(
             activity_type="Ride",
             include_normalised=False,
-            athlete_id="i1",
         )
     )
     assert "W/kg" not in result
@@ -947,7 +844,6 @@ def test_get_athlete_power_curves_date_validation(monkeypatch):
         get_athlete_power_curves(
             activity_type="Ride",
             start_date="2026-01-01",
-            athlete_id="i1",
         )
     )
     assert "Error" in result
@@ -971,7 +867,6 @@ def test_get_athlete_power_curves_no_curves_selected(monkeypatch):
             activity_type="Ride",
             this_season=False,
             last_season=False,
-            athlete_id="i1",
         )
     )
     assert "Error" in result
@@ -995,7 +890,7 @@ def test_get_custom_items(monkeypatch):
     monkeypatch.setattr(
         "intervals_mcp_server.tools.custom_items.make_intervals_request", fake_request
     )
-    result = asyncio.run(get_custom_items(athlete_id="1"))
+    result = asyncio.run(get_custom_items())
     assert "Custom Items:" in result
     assert "HR Zones" in result
     assert "ZONES" in result
@@ -1022,136 +917,12 @@ def test_get_custom_item_by_id(monkeypatch):
     monkeypatch.setattr(
         "intervals_mcp_server.tools.custom_items.make_intervals_request", fake_request
     )
-    result = asyncio.run(get_custom_item_by_id(item_id=1, athlete_id="1"))
+    result = asyncio.run(get_custom_item_by_id(item_id=1))
     assert "Custom Item Details:" in result
     assert "HR Zones" in result
     assert "ZONES" in result
     assert "Heart rate zones" in result
     assert "PRIVATE" in result
-
-
-def test_create_custom_item(monkeypatch):
-    """
-    Test create_custom_item returns a success message with formatted item details.
-    """
-    created_item = {
-        "id": 10,
-        "name": "New Chart",
-        "type": "FITNESS_CHART",
-        "description": "A new fitness chart",
-        "visibility": "PRIVATE",
-    }
-
-    async def fake_request(*_args, **_kwargs):
-        return created_item
-
-    monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
-    monkeypatch.setattr(
-        "intervals_mcp_server.tools.custom_items.make_intervals_request", fake_request
-    )
-    result = asyncio.run(
-        create_custom_item(name="New Chart", item_type="FITNESS_CHART", athlete_id="1")
-    )
-    assert "Successfully created custom item:" in result
-    assert "New Chart" in result
-    assert "FITNESS_CHART" in result
-
-
-def test_create_custom_item_with_string_content(monkeypatch):
-    """
-    Test create_custom_item correctly parses content when passed as a JSON string.
-    """
-    captured: dict = {}
-
-    async def fake_request(*_args, **kwargs):
-        captured["data"] = kwargs.get("data")
-        return {
-            "id": 11,
-            "name": "Activity Field",
-            "type": "ACTIVITY_FIELD",
-            "content": {"expression": "icu_training_load"},
-        }
-
-    monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
-    monkeypatch.setattr(
-        "intervals_mcp_server.tools.custom_items.make_intervals_request", fake_request
-    )
-    result = asyncio.run(
-        create_custom_item(
-            name="Activity Field",
-            item_type="ACTIVITY_FIELD",
-            athlete_id="1",
-            content='{"expression": "icu_training_load"}',  # type: ignore[arg-type]
-        )
-    )
-    assert "Successfully created custom item:" in result
-    # Verify the content was parsed from string to dict before being sent
-    assert isinstance(captured["data"]["content"], dict)
-    assert captured["data"]["content"]["expression"] == "icu_training_load"
-
-
-def test_update_custom_item(monkeypatch):
-    """
-    Test update_custom_item returns a success message with formatted item details.
-    """
-    updated_item = {
-        "id": 1,
-        "name": "Updated Chart",
-        "type": "FITNESS_CHART",
-        "description": "Updated description",
-        "visibility": "PUBLIC",
-    }
-
-    async def fake_request(*_args, **_kwargs):
-        return updated_item
-
-    monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
-    monkeypatch.setattr(
-        "intervals_mcp_server.tools.custom_items.make_intervals_request", fake_request
-    )
-    result = asyncio.run(update_custom_item(item_id=1, name="Updated Chart", athlete_id="1"))
-    assert "Successfully updated custom item:" in result
-    assert "Updated Chart" in result
-    assert "PUBLIC" in result
-
-
-def test_delete_custom_item(monkeypatch):
-    """
-    Test delete_custom_item returns the API response.
-    """
-
-    async def fake_request(*_args, **_kwargs):
-        return {}
-
-    monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
-    monkeypatch.setattr(
-        "intervals_mcp_server.tools.custom_items.make_intervals_request", fake_request
-    )
-    result = asyncio.run(delete_custom_item(item_id=1, athlete_id="1"))
-    assert "Successfully deleted" in result
-
-
-def test_create_custom_item_with_invalid_json_content(monkeypatch):
-    """
-    Test create_custom_item returns an error message when content is an invalid JSON string.
-    """
-
-    async def fake_request(*_args, **_kwargs):
-        return {}
-
-    monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
-    monkeypatch.setattr(
-        "intervals_mcp_server.tools.custom_items.make_intervals_request", fake_request
-    )
-    result = asyncio.run(
-        create_custom_item(
-            name="Bad Item",
-            item_type="FITNESS_CHART",
-            athlete_id="1",
-            content="not valid json",  # type: ignore[arg-type]
-        )
-    )
-    assert "Error: content must be valid JSON when passed as a string." in result
 
 
 def test_get_athlete_zones_all_sports(monkeypatch):
@@ -1164,7 +935,7 @@ def test_get_athlete_zones_all_sports(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.athlete.make_intervals_request", fake_request)
-    result = asyncio.run(get_athlete_zones(athlete_id="i1"))
+    result = asyncio.run(get_athlete_zones())
 
     parsed = json.loads(result)
     assert len(parsed) == 3
@@ -1188,7 +959,7 @@ def test_get_athlete_zones_filter_by_sport(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.athlete.make_intervals_request", fake_request)
-    result = asyncio.run(get_athlete_zones(athlete_id="i1", sport="Run"))
+    result = asyncio.run(get_athlete_zones(sport="Run"))
 
     parsed = json.loads(result)
     assert len(parsed) == 1
@@ -1214,7 +985,7 @@ def test_get_athlete_zones_filter_unknown_sport(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.athlete.make_intervals_request", fake_request)
-    result = asyncio.run(get_athlete_zones(athlete_id="i1", sport="Ski"))
+    result = asyncio.run(get_athlete_zones(sport="Ski"))
     assert "No zone settings found for sport 'Ski'" in result
 
 
@@ -1230,7 +1001,7 @@ def test_get_athlete_zones_omits_empty_zones(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.athlete.make_intervals_request", fake_request)
-    result = asyncio.run(get_athlete_zones(athlete_id="i1", sport="Swim"))
+    result = asyncio.run(get_athlete_zones(sport="Swim"))
 
     parsed = json.loads(result)
     swim = parsed[0]
@@ -1257,7 +1028,7 @@ def test_get_athlete_zones_ride_no_pace(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.athlete.make_intervals_request", fake_request)
-    result = asyncio.run(get_athlete_zones(athlete_id="i1", sport="Ride"))
+    result = asyncio.run(get_athlete_zones(sport="Ride"))
 
     parsed = json.loads(result)
     ride = parsed[0]
@@ -1276,7 +1047,7 @@ def test_get_athlete_zones_power_zone_values(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.athlete.make_intervals_request", fake_request)
-    result = asyncio.run(get_athlete_zones(athlete_id="i1", sport="Ride"))
+    result = asyncio.run(get_athlete_zones(sport="Ride"))
 
     parsed = json.loads(result)
     ride = parsed[0]
@@ -1300,7 +1071,7 @@ def test_get_athlete_zones_thresholds(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.athlete.make_intervals_request", fake_request)
-    result = asyncio.run(get_athlete_zones(athlete_id="i1", sport="Run"))
+    result = asyncio.run(get_athlete_zones(sport="Run"))
 
     parsed = json.loads(result)
     run = parsed[0]
@@ -1324,7 +1095,7 @@ def test_get_athlete_zones_run_pace_values(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.athlete.make_intervals_request", fake_request)
-    result = asyncio.run(get_athlete_zones(athlete_id="i1", sport="Run"))
+    result = asyncio.run(get_athlete_zones(sport="Run"))
 
     parsed = json.loads(result)
     pz = parsed[0]["pace_zones"]
@@ -1347,7 +1118,7 @@ def test_get_athlete_zones_swim_pace_values(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.athlete.make_intervals_request", fake_request)
-    result = asyncio.run(get_athlete_zones(athlete_id="i1", sport="Swim"))
+    result = asyncio.run(get_athlete_zones(sport="Swim"))
 
     parsed = json.loads(result)
     swim = parsed[0]
@@ -1370,28 +1141,25 @@ def test_get_athlete_zones_api_error(monkeypatch):
 
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake_request)
     monkeypatch.setattr("intervals_mcp_server.tools.athlete.make_intervals_request", fake_request)
-    result = asyncio.run(get_athlete_zones(athlete_id="i1"))
+    result = asyncio.run(get_athlete_zones())
     assert "Error fetching athlete zones" in result
     assert "Unauthorized" in result
 
 
 def test_get_athlete_zones_no_athlete_id(monkeypatch):
     """
-    Test get_athlete_zones returns error when no athlete ID is available.
+    Test get_athlete_zones returns an error when ATHLETE_ID is not configured.
     """
-    from intervals_mcp_server import config as config_module
+    from intervals_mcp_server.config import get_config
 
-    original = config_module._config_instance
-    monkeypatch.setattr(config_module, "_config_instance", None)
-    monkeypatch.setenv("ATHLETE_ID", "")
-    monkeypatch.setenv("API_KEY", "test")
-    config_module._config_instance = config_module.load_config()
+    async def fail_request(*_args, **_kwargs):
+        raise AssertionError("no request should be made without an athlete ID")
 
-    try:
-        result = asyncio.run(get_athlete_zones(athlete_id=""))
-        assert "Error" in result or "No athlete ID" in result
-    finally:
-        config_module._config_instance = original
+    monkeypatch.setattr(get_config(), "athlete_id", "")
+    monkeypatch.setattr("intervals_mcp_server.tools.athlete.make_intervals_request", fail_request)
+
+    result = asyncio.run(get_athlete_zones())
+    assert "No athlete ID configured" in result
 
 
 def test_get_activity_histogram_power(monkeypatch):

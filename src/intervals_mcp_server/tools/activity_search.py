@@ -38,8 +38,6 @@ def _format_activity_list(activities: list[dict[str, Any]], header: str) -> str:
 )
 async def search_activities(
     query: str,
-    athlete_id: str = "",
-    api_key: str = "",
     limit: int = 25,
     full: bool = False,
 ) -> str:
@@ -47,12 +45,10 @@ async def search_activities(
 
     Args:
         query: Search query. Plain text searches activity names; prefix with ``#`` to match a tag exactly.
-        athlete_id: The Intervals.icu athlete ID (optional, defaults to env)
-        api_key: The Intervals.icu API key (optional, defaults to env)
         limit: Maximum number of results (default 25)
         full: If True, fetch full activity objects via /search-full; otherwise summary info.
     """
-    athlete_id_to_use, error_msg = resolve_athlete_id(athlete_id, config.athlete_id)
+    athlete_id_to_use, error_msg = resolve_athlete_id(config.athlete_id)
     if error_msg:
         return error_msg
     if not query:
@@ -63,7 +59,6 @@ async def search_activities(
 
     result = await make_intervals_request(
         url=f"/athlete/{athlete_id_to_use}/activities/{endpoint}",
-        api_key=api_key,
         params=params,
     )
 
@@ -84,8 +79,6 @@ async def interval_search(  # pylint: disable=too-many-arguments,too-many-positi
     max_secs: int,
     min_intensity: int,
     max_intensity: int,
-    athlete_id: str = "",
-    api_key: str = "",
     interval_type: str = "",
     min_reps: int = 0,
     max_reps: int = 0,
@@ -98,14 +91,12 @@ async def interval_search(  # pylint: disable=too-many-arguments,too-many-positi
         max_secs: Maximum interval duration in seconds.
         min_intensity: Minimum intensity percentage (e.g. 90 for 90% FTP).
         max_intensity: Maximum intensity percentage.
-        athlete_id: The Intervals.icu athlete ID (optional, defaults to env)
-        api_key: The Intervals.icu API key (optional, defaults to env)
         interval_type: Optional interval type filter (e.g. "WORK", "REST").
         min_reps: Minimum matching intervals required per activity (0 = no minimum).
         max_reps: Maximum matching intervals per activity (0 = no maximum).
         limit: Maximum number of activities to return.
     """
-    athlete_id_to_use, error_msg = resolve_athlete_id(athlete_id, config.athlete_id)
+    athlete_id_to_use, error_msg = resolve_athlete_id(config.athlete_id)
     if error_msg:
         return error_msg
 
@@ -125,7 +116,6 @@ async def interval_search(  # pylint: disable=too-many-arguments,too-many-positi
 
     result = await make_intervals_request(
         url=f"/athlete/{athlete_id_to_use}/activities/interval-search",
-        api_key=api_key,
         params=params,
     )
 
@@ -147,8 +137,6 @@ async def interval_search(  # pylint: disable=too-many-arguments,too-many-positi
 )
 async def get_activities_around(
     activity_id: str,
-    athlete_id: str = "",
-    api_key: str = "",
     route_id: int = 0,
     limit: int = 30,
 ) -> str:
@@ -156,12 +144,10 @@ async def get_activities_around(
 
     Args:
         activity_id: The reference activity ID (not returned in the result set).
-        athlete_id: The Intervals.icu athlete ID (optional, defaults to env)
-        api_key: The Intervals.icu API key (optional, defaults to env)
         route_id: Only return activities sharing this route (0 = no filter).
         limit: Maximum number of activities to return (default 30).
     """
-    athlete_id_to_use, error_msg = resolve_athlete_id(athlete_id, config.athlete_id)
+    athlete_id_to_use, error_msg = resolve_athlete_id(config.athlete_id)
     if error_msg:
         return error_msg
     if not activity_id:
@@ -173,7 +159,6 @@ async def get_activities_around(
 
     result = await make_intervals_request(
         url=f"/athlete/{athlete_id_to_use}/activities-around",
-        api_key=api_key,
         params=params,
     )
 
@@ -191,19 +176,15 @@ async def get_activities_around(
 )
 async def get_activities_by_ids(
     activity_ids: list[str],
-    athlete_id: str = "",
-    api_key: str = "",
     include_intervals: bool = False,
 ) -> str:
     """Fetch multiple activities by ID in a single call. Missing IDs are ignored.
 
     Args:
         activity_ids: List of Intervals.icu activity IDs.
-        athlete_id: The Intervals.icu athlete ID (optional, defaults to env)
-        api_key: The Intervals.icu API key (optional, defaults to env)
         include_intervals: If True, include icu_intervals/icu_groups in each activity.
     """
-    athlete_id_to_use, error_msg = resolve_athlete_id(athlete_id, config.athlete_id)
+    athlete_id_to_use, error_msg = resolve_athlete_id(config.athlete_id)
     if error_msg:
         return error_msg
     if not activity_ids:
@@ -216,7 +197,6 @@ async def get_activities_by_ids(
 
     result = await make_intervals_request(
         url=f"/athlete/{athlete_id_to_use}/activities/{ids_path}",
-        api_key=api_key,
         params=params or None,
     )
 
@@ -233,18 +213,14 @@ async def get_activities_by_ids(
         title="Get Activity Tags", read_only_hint=True, destructive_hint=False
     )
 )
-async def get_activity_tags(
-    athlete_id: str = "",
-    api_key: str = "",
-) -> str:
+async def get_activity_tags() -> str:
     """List all tags that have been applied to the athlete's activities."""
-    athlete_id_to_use, error_msg = resolve_athlete_id(athlete_id, config.athlete_id)
+    athlete_id_to_use, error_msg = resolve_athlete_id(config.athlete_id)
     if error_msg:
         return error_msg
 
     result = await make_intervals_request(
         url=f"/athlete/{athlete_id_to_use}/activity-tags",
-        api_key=api_key,
     )
 
     if isinstance(result, dict) and "error" in result:

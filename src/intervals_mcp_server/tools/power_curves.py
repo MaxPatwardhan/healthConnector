@@ -136,7 +136,6 @@ async def get_athlete_power_curves(
     this_season: bool = True,
     last_season: bool = True,
     include_normalised: bool = True,
-    athlete_id: str = "",
 ) -> str:
     """Get power curves for an athlete from Intervals.icu.
 
@@ -152,9 +151,8 @@ async def get_athlete_power_curves(
         this_season: Include this season's curve (default True)
         last_season: Include last season's curve (default True)
         include_normalised: Include weight-normalised W/kg values (default True)
-        athlete_id: Intervals.icu athlete ID (optional, uses ATHLETE_ID from .env if not provided)
     """
-    athlete_id_to_use, error_msg = resolve_athlete_id(athlete_id, config.athlete_id)
+    athlete_id_to_use, error_msg = resolve_athlete_id(config.athlete_id)
     if error_msg:
         return error_msg
 

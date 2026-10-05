@@ -245,8 +245,6 @@ def _extract_sport_zones(setting: dict[str, Any]) -> dict[str, Any]:
     )
 )
 async def get_athlete_zones(
-    athlete_id: str = "",
-    api_key: str = "",
     sport: str = "",
 ) -> str:
     """
@@ -258,17 +256,14 @@ async def get_athlete_zones(
     prescribing intensity targets in planned workouts.
 
     Args:
-        athlete_id: Intervals.icu athlete ID (optional, falls back to ATHLETE_ID env var)
-        api_key: The Intervals.icu API key (optional, will use API_KEY from .env if not provided)
         sport: Filter to a specific sport type e.g. "Run", "Ride", "Swim" (optional, returns all if omitted)
     """
-    athlete_id_to_use, error_msg = resolve_athlete_id(athlete_id, config.athlete_id)
+    athlete_id_to_use, error_msg = resolve_athlete_id(config.athlete_id)
     if error_msg:
         return error_msg
 
     result = await make_intervals_request(
         url=f"/athlete/{athlete_id_to_use}/sport-settings",
-        api_key=api_key,
     )
 
     if isinstance(result, dict) and "error" in result:

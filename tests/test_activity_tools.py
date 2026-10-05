@@ -1,8 +1,7 @@
 """
-Lightweight sanity tests for the activity analysis, search, and interval tools.
+Lightweight sanity tests for the activity analysis and search tools.
 
-Verifies URL routing, HTTP method, and body / query-parameter shape per the
-OpenAPI spec. Network calls are mocked via monkeypatching
+Verifies URL routing and query-parameter shape per the OpenAPI spec. Network calls are mocked via monkeypatching
 ``make_intervals_request`` on each tool module.
 """
 
@@ -17,23 +16,11 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 os.environ.setdefault("API_KEY", "test")
 os.environ.setdefault("ATHLETE_ID", "i1")
 
-from intervals_mcp_server.tools.activities import (  # noqa: E402
-    bulk_create_manual_activities,
-    create_manual_activity,
-    delete_activity,
-    update_activity,
-)
 from intervals_mcp_server.tools.activity_analysis import (  # noqa: E402
     get_activity_best_efforts,
     get_activity_curve,
     get_activity_interval_stats,
     get_activity_map,
-)
-from intervals_mcp_server.tools.activity_intervals import (  # noqa: E402
-    delete_activity_intervals,
-    split_activity_interval,
-    update_activity_interval,
-    update_activity_intervals,
 )
 from intervals_mcp_server.tools.activity_search import (  # noqa: E402
     get_activities_around,
@@ -64,57 +51,6 @@ def _patch(monkeypatch, module_path: str, fake: FakeRequest) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Activities — CRUD
-# ---------------------------------------------------------------------------
-
-
-def test_update_activity_puts_to_activity(monkeypatch):
-    fake = FakeRequest()
-    _patch(monkeypatch, "activities", fake)
-    result = asyncio.run(update_activity("a1", {"name": "Morning Ride"}))
-    assert fake.last["url"] == "/activity/a1"
-    assert fake.last["method"] == "PUT"
-    assert fake.last["data"] == {"name": "Morning Ride"}
-    assert "Successfully updated" in result
-
-
-def test_update_activity_requires_fields():
-    result = asyncio.run(update_activity("a1", {}))
-    assert "Error" in result
-
-
-def test_delete_activity(monkeypatch):
-    fake = FakeRequest(response={})
-    _patch(monkeypatch, "activities", fake)
-    result = asyncio.run(delete_activity("a1"))
-    assert fake.last["url"] == "/activity/a1"
-    assert fake.last["method"] == "DELETE"
-    assert "Successfully deleted" in result
-
-
-def test_create_manual_activity(monkeypatch):
-    fake = FakeRequest(response={"id": "a42"})
-    _patch(monkeypatch, "activities", fake)
-    payload = {"name": "Run", "type": "Run", "moving_time": 1800}
-    result = asyncio.run(create_manual_activity(payload, athlete_id="i1"))
-    assert fake.last["url"] == "/athlete/i1/activities/manual"
-    assert fake.last["method"] == "POST"
-    assert fake.last["data"] == payload
-    assert "a42" in result
-
-
-def test_bulk_create_manual_activities(monkeypatch):
-    fake = FakeRequest(response=[{"id": "a1"}, {"id": "a2"}])
-    _patch(monkeypatch, "activities", fake)
-    items = [{"name": "A", "external_id": "x1"}, {"name": "B", "external_id": "x2"}]
-    result = asyncio.run(bulk_create_manual_activities(items, athlete_id="i1"))
-    assert fake.last["url"] == "/athlete/i1/activities/manual/bulk"
-    assert fake.last["method"] == "POST"
-    assert fake.last["data"] == items
-    assert "2 activities" in result
-
-
-# ---------------------------------------------------------------------------
 # Activity search
 # ---------------------------------------------------------------------------
 
@@ -122,7 +58,7 @@ def test_bulk_create_manual_activities(monkeypatch):
 def test_search_activities_summary(monkeypatch):
     fake = FakeRequest(response=[])
     _patch(monkeypatch, "activity_search", fake)
-    asyncio.run(search_activities("vo2", athlete_id="i1", limit=5))
+    asyncio.run(search_activities("vo2", limit=5))
     assert fake.last["url"] == "/athlete/i1/activities/search"
     assert fake.last["params"] == {"q": "vo2", "limit": 5}
 
@@ -130,7 +66,7 @@ def test_search_activities_summary(monkeypatch):
 def test_search_activities_full_uses_search_full(monkeypatch):
     fake = FakeRequest(response=[])
     _patch(monkeypatch, "activity_search", fake)
-    asyncio.run(search_activities("#race", athlete_id="i1", full=True))
+    asyncio.run(search_activities("#race", full=True))
     assert fake.last["url"] == "/athlete/i1/activities/search-full"
 
 
@@ -143,7 +79,6 @@ def test_interval_search_sends_required_params(monkeypatch):
             max_secs=300,
             min_intensity=95,
             max_intensity=120,
-            athlete_id="i1",
             min_reps=3,
         )
     )
@@ -158,7 +93,7 @@ def test_interval_search_sends_required_params(monkeypatch):
 def test_get_activities_around(monkeypatch):
     fake = FakeRequest(response=[])
     _patch(monkeypatch, "activity_search", fake)
-    asyncio.run(get_activities_around("a1", athlete_id="i1", limit=10))
+    asyncio.run(get_activities_around("a1", limit=10))
     assert fake.last["url"] == "/athlete/i1/activities-around"
     assert fake.last["params"]["activity_id"] == "a1"
     assert fake.last["params"]["limit"] == 10
@@ -167,7 +102,7 @@ def test_get_activities_around(monkeypatch):
 def test_get_activity_tags(monkeypatch):
     fake = FakeRequest(response=["climbing", "race"])
     _patch(monkeypatch, "activity_search", fake)
-    result = asyncio.run(get_activity_tags(athlete_id="i1"))
+    result = asyncio.run(get_activity_tags())
     assert fake.last["url"] == "/athlete/i1/activity-tags"
     assert "climbing" in result
 
@@ -246,49 +181,6 @@ def test_get_activity_map(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Activity interval editing
-# ---------------------------------------------------------------------------
-
-
-def test_update_activity_intervals_replace_all(monkeypatch):
-    fake = FakeRequest(response={})
-    _patch(monkeypatch, "activity_intervals", fake)
-    items = [{"start_index": 0, "type": "WORK"}]
-    asyncio.run(update_activity_intervals("a1", items, replace_all=True))
-    assert fake.last["url"] == "/activity/a1/intervals"
-    assert fake.last["method"] == "PUT"
-    assert fake.last["params"] == {"all": True}
-    assert fake.last["data"] == items
-
-
-def test_update_activity_interval_single(monkeypatch):
-    fake = FakeRequest(response={})
-    _patch(monkeypatch, "activity_intervals", fake)
-    asyncio.run(update_activity_interval("a1", 7, {"label": "Tempo"}))
-    assert fake.last["url"] == "/activity/a1/intervals/7"
-    assert fake.last["method"] == "PUT"
-    assert fake.last["data"] == {"label": "Tempo"}
-
-
-def test_delete_activity_intervals(monkeypatch):
-    fake = FakeRequest(response={})
-    _patch(monkeypatch, "activity_intervals", fake)
-    asyncio.run(delete_activity_intervals("a1", [1, 2, 3]))
-    assert fake.last["url"] == "/activity/a1/delete-intervals"
-    assert fake.last["method"] == "PUT"
-    assert fake.last["data"] == [1, 2, 3]
-
-
-def test_split_activity_interval(monkeypatch):
-    fake = FakeRequest(response={})
-    _patch(monkeypatch, "activity_intervals", fake)
-    asyncio.run(split_activity_interval("a1", split_at=120))
-    assert fake.last["url"] == "/activity/a1/split-interval"
-    assert fake.last["method"] == "PUT"
-    assert fake.last["params"] == {"splitAt": 120}
-
-
-# ---------------------------------------------------------------------------
 # Power curves fix verification (uses athlete tool, not module above)
 # ---------------------------------------------------------------------------
 
@@ -298,7 +190,7 @@ def test_power_curves_sends_required_filters_and_json_ext(monkeypatch):
 
     fake = FakeRequest(response={"list": []})
     monkeypatch.setattr("intervals_mcp_server.tools.power_curves.make_intervals_request", fake)
-    asyncio.run(pc_mod.get_athlete_power_curves(activity_type="Ride", athlete_id="i1"))
+    asyncio.run(pc_mod.get_athlete_power_curves(activity_type="Ride"))
     assert fake.last["url"] == "/athlete/i1/power-curves.json"
     p = fake.last["params"]
     assert p["f1"] == json.dumps([])

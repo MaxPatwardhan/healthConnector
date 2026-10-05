@@ -24,7 +24,7 @@ def test_fastmcp_host_default_is_localhost(monkeypatch):
     start_server(mcp_instance, TransportAliases.STREAMABLE_HTTP)
 
     mcp_instance.run.assert_called_once_with(
-        transport="streamable-http", host="127.0.0.1", port=8000
+        transport="streamable-http", host="127.0.0.1", port=8000, show_banner=False
     )
 
 
@@ -35,4 +35,6 @@ def test_fastmcp_host_reads_from_env(monkeypatch):
 
     start_server(mcp_instance, TransportAliases.STREAMABLE_HTTP)
 
-    mcp_instance.run.assert_called_once_with(transport="streamable-http", host="0.0.0.0", port=8000)
+    mcp_instance.run.assert_called_once_with(
+        transport="streamable-http", host="0.0.0.0", port=8000, show_banner=False
+    )

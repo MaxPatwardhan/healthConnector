@@ -96,7 +96,6 @@ def test_get_activities_filters_by_date(monkeypatch):
 
     result = asyncio.run(
         get_activities(
-            athlete_id="1",
             start_date="2024-06-14",
             end_date="2024-06-16",
             limit=10,
@@ -129,7 +128,6 @@ def test_get_activities_no_results_when_all_outside_range(monkeypatch):
 
     result = asyncio.run(
         get_activities(
-            athlete_id="1",
             start_date="2024-06-01",
             end_date="2024-06-30",
             limit=10,

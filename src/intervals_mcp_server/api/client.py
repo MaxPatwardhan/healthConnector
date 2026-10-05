@@ -6,8 +6,8 @@ including request management, error handling, and client lifecycle.
 """
 
 from json import JSONDecodeError
-import json
 import logging
+import re
 import sys
 from contextlib import asynccontextmanager
 from http import HTTPStatus
@@ -19,6 +19,12 @@ from fastmcp import FastMCP
 from intervals_mcp_server.config import get_config
 
 logger = logging.getLogger("intervals_icu_mcp_server")
+
+# The only HTTP method this server ever sends. Keep it that way: the server is read-only.
+_READ_ONLY_METHOD = "GET"
+
+# Request paths are built from fixed endpoint names plus IDs; allow only those characters.
+_SAFE_PATH = re.compile(r"(?:/[A-Za-z0-9_.,-]+)+")
 
 # Create a single AsyncClient instance for all requests (lazily initialized)
 # This can be monkeypatched via server.httpx_client for testing
@@ -99,12 +105,27 @@ def _get_error_message(error_code: int, error_text: str) -> str:
         return error_text
 
 
+def _validate_path(url: str) -> str | None:
+    """Reject request paths that could escape the endpoint they were built for.
+
+    Tool arguments such as activity or event IDs are interpolated into the path,
+    so a value like ``../athlete/i999/wellness`` would otherwise be normalised
+    by httpx into a request for a different resource.
+
+    Returns:
+        An error message, or None if the path is safe.
+    """
+    if not _SAFE_PATH.fullmatch(url) or any(seg in {".", ".."} for seg in url.split("/")):
+        return f"Invalid request path: {url!r}. IDs may only contain letters, digits, '-', '_' and ','."
+    return None
+
+
 def _prepare_request_config(
     url: str,
-    api_key: str | None,
-    method: str,
 ) -> tuple[str, httpx.BasicAuth, dict[str, str], str | None]:
     """Prepare request configuration including headers, auth, and URL.
+
+    Credentials come only from the environment (API_KEY), never from tool arguments.
 
     Returns:
         Tuple of (full_url, auth, headers, error_message).
@@ -113,21 +134,21 @@ def _prepare_request_config(
     config = get_config()
     headers = {"User-Agent": config.user_agent, "Accept": "application/json"}
 
-    if method in ["POST", "PUT"]:
-        headers["Content-Type"] = "application/json"
+    path_error = _validate_path(url)
+    if path_error:
+        logger.error("Rejected request path: %s", url)
+        return "", httpx.BasicAuth("", ""), {}, path_error
 
-    # Use provided api_key or fall back to global API_KEY
-    key_to_use = api_key if api_key else config.api_key
-    if not key_to_use:
-        logger.error("No API key provided for request to: %s", url)
+    if not config.api_key:
+        logger.error("No API key configured for request to: %s", url)
         return (
             "",
             httpx.BasicAuth("", ""),
             {},
-            "API key is required. Set API_KEY env var or pass api_key",
+            "API key is required. Set the API_KEY environment variable.",
         )
 
-    auth = httpx.BasicAuth("API_KEY", key_to_use)
+    auth = httpx.BasicAuth("API_KEY", config.api_key)
     full_url = f"{config.intervals_api_base_url}{url}"
     return full_url, auth, headers, None
 
@@ -151,44 +172,29 @@ def _parse_response(
 
 async def make_intervals_request(
     url: str,
-    api_key: str | None = None,
     params: dict[str, Any] | None = None,
-    method: str = "GET",
-    data: dict[str, Any] | list[Any] | None = None,
 ) -> dict[str, Any] | list[dict[str, Any]]:
     """
-    Make a request to the Intervals.icu API with proper error handling.
+    Make a read-only (GET) request to the Intervals.icu API with proper error handling.
+
+    This server is read-only by design: GET is the only HTTP method it can issue,
+    so no tool can create, modify or delete data on Intervals.icu.
 
     Args:
         url (str): The API endpoint path (e.g., '/athlete/{id}/activities').
-        api_key (str | None): Optional API key to use for authentication. Defaults to the global API_KEY.
         params (dict[str, Any] | None): Optional query parameters for the request.
-        method (str): HTTP method to use (GET, POST, etc.). Defaults to GET.
-        data (dict[str, Any] | None): Optional data to send in the request body.
 
     Returns:
         dict[str, Any] | list[dict[str, Any]]: The parsed JSON response from the API, or an error dict.
     """
     # Prepare request configuration
-    full_url, auth, headers, error_msg = _prepare_request_config(url, api_key, method)
+    full_url, auth, headers, error_msg = _prepare_request_config(url)
     if error_msg:
         return {"error": True, "message": error_msg}
 
     async def _send_request(client: httpx.AsyncClient) -> httpx.Response:
-        if method in {"POST", "PUT"} and data is not None:
-            body = json.dumps(data)
-            logger.debug("Request %s %s body: %s", method, full_url, body)
-            return await client.request(
-                method=method,
-                url=full_url,
-                headers=headers,
-                params=params,
-                auth=auth,
-                timeout=30.0,
-                content=body,
-            )
         return await client.request(
-            method=method,
+            method=_READ_ONLY_METHOD,
             url=full_url,
             headers=headers,
             params=params,

@@ -446,7 +446,6 @@ def test_get_training_summary_integration(monkeypatch):
         get_training_summary(
             start_date="2026-02-15",
             end_date="2026-03-17",
-            athlete_id="i1",
         )
     )
     result = json.loads(result_str)
@@ -493,9 +492,7 @@ def test_get_training_summary_compact_json(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake)
     monkeypatch.setattr("intervals_mcp_server.tools.training_summary.make_intervals_request", fake)
 
-    result_str = asyncio.run(
-        get_training_summary(start_date="2026-02-15", end_date="2026-03-17", athlete_id="i1")
-    )
+    result_str = asyncio.run(get_training_summary(start_date="2026-02-15", end_date="2026-03-17"))
     # Compact JSON should have no spaces after : or ,
     assert " : " not in result_str
     # Verify it's valid JSON
@@ -527,9 +524,7 @@ def test_get_training_summary_partial_week(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake)
     monkeypatch.setattr("intervals_mcp_server.tools.training_summary.make_intervals_request", fake)
 
-    result_str = asyncio.run(
-        get_training_summary(start_date="2026-01-01", end_date="2027-01-01", athlete_id="i1")
-    )
+    result_str = asyncio.run(get_training_summary(start_date="2026-01-01", end_date="2027-01-01"))
     result = json.loads(result_str)
     assert result["weeks"][0]["partial"] is True
 
@@ -543,7 +538,7 @@ def test_get_training_summary_default_dates(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.tools.training_summary.make_intervals_request", fake)
 
     now = datetime.now()
-    result_str = asyncio.run(get_training_summary(athlete_id="i1"))
+    result_str = asyncio.run(get_training_summary())
     result = json.loads(result_str)
 
     expected_start = (now - timedelta(days=30)).strftime("%Y-%m-%d")
@@ -564,9 +559,7 @@ def test_get_training_summary_error_no_athlete(monkeypatch):
 
 def test_get_training_summary_invalid_date(monkeypatch):
     """Should return error for invalid date format."""
-    result = asyncio.run(
-        get_training_summary(start_date="not-a-date", end_date="2026-02-01", athlete_id="i1")
-    )
+    result = asyncio.run(get_training_summary(start_date="not-a-date", end_date="2026-02-01"))
     assert "Error" in result
 
 
@@ -581,9 +574,7 @@ def test_get_training_summary_api_error(monkeypatch):
         "intervals_mcp_server.tools.training_summary.make_intervals_request", fake_error
     )
 
-    result = asyncio.run(
-        get_training_summary(start_date="2026-01-01", end_date="2026-02-01", athlete_id="i1")
-    )
+    result = asyncio.run(get_training_summary(start_date="2026-01-01", end_date="2026-02-01"))
     assert "Error" in result
     assert "Unauthorized" in result
 
@@ -595,9 +586,7 @@ def test_get_training_summary_empty_response(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake)
     monkeypatch.setattr("intervals_mcp_server.tools.training_summary.make_intervals_request", fake)
 
-    result_str = asyncio.run(
-        get_training_summary(start_date="2026-01-01", end_date="2026-02-01", athlete_id="i1")
-    )
+    result_str = asyncio.run(get_training_summary(start_date="2026-01-01", end_date="2026-02-01"))
     result = json.loads(result_str)
     assert result["period"]["start"] == "2026-01-01"
 
@@ -699,7 +688,6 @@ def test_future_week_has_no_completed(monkeypatch):
         get_training_summary(
             start_date=future_date,
             end_date=(datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d"),
-            athlete_id="i1",
         )
     )
     result = json.loads(result_str)
@@ -727,7 +715,6 @@ def test_past_week_has_planned_and_completed(monkeypatch):
         get_training_summary(
             start_date="2026-02-15",
             end_date="2026-03-17",
-            athlete_id="i1",
         )
     )
     result = json.loads(result_str)
@@ -792,9 +779,7 @@ def test_get_training_summary_zero_tss_sport(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake)
     monkeypatch.setattr("intervals_mcp_server.tools.training_summary.make_intervals_request", fake)
 
-    result_str = asyncio.run(
-        get_training_summary(start_date="2026-01-01", end_date="2026-01-12", athlete_id="i1")
-    )
+    result_str = asyncio.run(get_training_summary(start_date="2026-01-01", end_date="2026-01-12"))
     result = json.loads(result_str)
 
     # Check period_totals by_sport
@@ -825,9 +810,7 @@ def test_get_training_summary_concurrent_calls(monkeypatch):
         "intervals_mcp_server.tools.training_summary.make_intervals_request", tracking_request
     )
 
-    asyncio.run(
-        get_training_summary(start_date="2026-01-01", end_date="2026-02-01", athlete_id="i1")
-    )
+    asyncio.run(get_training_summary(start_date="2026-01-01", end_date="2026-02-01"))
 
     assert len(call_urls) == 4
     assert any("athlete-summary" in u for u in call_urls)
@@ -844,9 +827,7 @@ def test_get_training_summary_ac_ratio(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake)
     monkeypatch.setattr("intervals_mcp_server.tools.training_summary.make_intervals_request", fake)
 
-    result_str = asyncio.run(
-        get_training_summary(start_date="2026-02-15", end_date="2026-03-17", athlete_id="i1")
-    )
+    result_str = asyncio.run(get_training_summary(start_date="2026-02-15", end_date="2026-03-17"))
     result = json.loads(result_str)
     expected_ac = round(74.2 / 61.4, 2)
     assert result["load"]["ac_ratio"] == expected_ac
@@ -860,9 +841,7 @@ def test_get_training_summary_wellness_in_weeks(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake)
     monkeypatch.setattr("intervals_mcp_server.tools.training_summary.make_intervals_request", fake)
 
-    result_str = asyncio.run(
-        get_training_summary(start_date="2026-02-15", end_date="2026-03-17", athlete_id="i1")
-    )
+    result_str = asyncio.run(get_training_summary(start_date="2026-02-15", end_date="2026-03-17"))
     result = json.loads(result_str)
 
     # First week (2026-02-16 to 2026-02-22) should have wellness data from 2 entries
@@ -879,9 +858,7 @@ def test_get_training_summary_compliance_in_weeks(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake)
     monkeypatch.setattr("intervals_mcp_server.tools.training_summary.make_intervals_request", fake)
 
-    result_str = asyncio.run(
-        get_training_summary(start_date="2026-02-15", end_date="2026-03-17", athlete_id="i1")
-    )
+    result_str = asyncio.run(get_training_summary(start_date="2026-02-15", end_date="2026-03-17"))
     result = json.loads(result_str)
 
     # First week should have compliance under completed
@@ -954,9 +931,7 @@ def test_week_with_holiday_dates(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake)
     monkeypatch.setattr("intervals_mcp_server.tools.training_summary.make_intervals_request", fake)
 
-    result_str = asyncio.run(
-        get_training_summary(start_date="2026-02-15", end_date="2026-02-23", athlete_id="i1")
-    )
+    result_str = asyncio.run(get_training_summary(start_date="2026-02-15", end_date="2026-02-23"))
     result = json.loads(result_str)
     week = result["weeks"][0]
     assert week["holiday"] == ["2026-02-18"]
@@ -1001,9 +976,7 @@ def test_week_with_note(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake)
     monkeypatch.setattr("intervals_mcp_server.tools.training_summary.make_intervals_request", fake)
 
-    result_str = asyncio.run(
-        get_training_summary(start_date="2026-02-15", end_date="2026-02-23", athlete_id="i1")
-    )
+    result_str = asyncio.run(get_training_summary(start_date="2026-02-15", end_date="2026-02-23"))
     result = json.loads(result_str)
     week = result["weeks"][0]
     assert "notes" in week
@@ -1047,9 +1020,7 @@ def test_week_with_multiple_notes(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake)
     monkeypatch.setattr("intervals_mcp_server.tools.training_summary.make_intervals_request", fake)
 
-    result_str = asyncio.run(
-        get_training_summary(start_date="2026-02-15", end_date="2026-02-23", athlete_id="i1")
-    )
+    result_str = asyncio.run(get_training_summary(start_date="2026-02-15", end_date="2026-02-23"))
     result = json.loads(result_str)
     week = result["weeks"][0]
     assert len(week["notes"]) == 2
@@ -1140,9 +1111,7 @@ def test_holiday_spanning_two_weeks(monkeypatch):
     monkeypatch.setattr("intervals_mcp_server.api.client.make_intervals_request", fake)
     monkeypatch.setattr("intervals_mcp_server.tools.training_summary.make_intervals_request", fake)
 
-    result_str = asyncio.run(
-        get_training_summary(start_date="2026-02-15", end_date="2026-03-01", athlete_id="i1")
-    )
+    result_str = asyncio.run(get_training_summary(start_date="2026-02-15", end_date="2026-03-01"))
     result = json.loads(result_str)
 
     # Week 1 (Feb 16-22): 4 holiday days

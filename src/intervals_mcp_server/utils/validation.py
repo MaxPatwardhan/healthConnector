@@ -47,27 +47,26 @@ def validate_date(date_str: str) -> str:
         raise ValueError("Invalid date format. Please use YYYY-MM-DD.") from exc
 
 
-def resolve_athlete_id(
-    athlete_id: str | None, default_athlete_id: str = ""
-) -> tuple[str, str | None]:
-    """Resolve athlete ID from parameter or default, with error message if missing.
+def resolve_athlete_id(configured_athlete_id: str) -> tuple[str, str | None]:
+    """Return the configured athlete ID, with an error message if it is missing.
+
+    The athlete ID comes only from the ATHLETE_ID environment variable; tools
+    do not accept it as an argument.
 
     Args:
-        athlete_id: Optional athlete ID parameter.
-        default_athlete_id: Default athlete ID to use if athlete_id is None or empty.
+        configured_athlete_id: The athlete ID from the server configuration.
 
     Returns:
-        Tuple of (athlete_id_to_use, error_message).
-        athlete_id_to_use will be empty string if not found.
-        error_message will be None if athlete_id is resolved successfully.
+        Tuple of (athlete_id, error_message).
+        athlete_id will be empty string if not configured.
+        error_message will be None if the athlete ID is configured.
     """
-    athlete_id_to_use = athlete_id if athlete_id else default_athlete_id
-    if not athlete_id_to_use:
+    if not configured_athlete_id:
         return (
             "",
-            "Error: No athlete ID provided and no default ATHLETE_ID found in environment variables.",
+            "Error: No athlete ID configured. Set the ATHLETE_ID environment variable.",
         )
-    return athlete_id_to_use, None
+    return configured_athlete_id, None
 
 
 def resolve_activity_type(name: str | None, activity_type: str | None = None) -> str:

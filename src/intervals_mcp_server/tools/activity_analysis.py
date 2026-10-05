@@ -29,7 +29,6 @@ CURVE_TYPES = {"hr", "pace", "power", "power-multi"}
 async def get_activity_curve(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     activity_id: str,
     curve_type: str,
-    api_key: str = "",
     gap: bool = False,
     fatigue: str = "",
     streams: str = "",
@@ -40,7 +39,6 @@ async def get_activity_curve(  # pylint: disable=too-many-arguments,too-many-pos
         activity_id: The Intervals.icu activity ID.
         curve_type: One of "hr", "pace", "power", "power-multi". "power-multi" returns
                     curves for multiple streams via the /power-curves endpoint.
-        api_key: Optional API key.
         gap: For pace curves only. If True, returns gradient-adjusted pace curve.
         fatigue: For "power": one of "kj0", "kj1" to request a fatigued-curve variant.
                  For "power-multi": comma-separated list of "normal", "kj0", "kj1".
@@ -70,7 +68,7 @@ async def get_activity_curve(  # pylint: disable=too-many-arguments,too-many-pos
         if fatigue:
             params["fatigue"] = fatigue
 
-    result = await make_intervals_request(url=url, api_key=api_key, params=params or None)
+    result = await make_intervals_request(url=url, params=params or None)
 
     if isinstance(result, dict) and "error" in result:
         return f"Error fetching {curve_type} curve: {result.get('message', 'Unknown error')}"
@@ -86,7 +84,6 @@ async def get_activity_curve(  # pylint: disable=too-many-arguments,too-many-pos
 async def get_activity_best_efforts(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     activity_id: str,
     stream: str,
-    api_key: str = "",
     duration: int = 0,
     distance: float = 0.0,
     count: int = 0,
@@ -100,7 +97,6 @@ async def get_activity_best_efforts(  # pylint: disable=too-many-arguments,too-m
     Args:
         activity_id: The Intervals.icu activity ID.
         stream: Stream name to search (e.g. "watts", "heartrate", "velocity_smooth").
-        api_key: Optional API key.
         duration: Duration of each effort in seconds (use 0 to omit).
         distance: Distance of each effort in meters (use 0 to omit).
         count: Maximum number of efforts to return (use 0 to omit).
@@ -130,7 +126,6 @@ async def get_activity_best_efforts(  # pylint: disable=too-many-arguments,too-m
 
     result = await make_intervals_request(
         url=f"/activity/{activity_id}/best-efforts",
-        api_key=api_key,
         params=params,
     )
 
@@ -145,11 +140,10 @@ async def get_activity_best_efforts(  # pylint: disable=too-many-arguments,too-m
         title="Get Activity Segments", read_only_hint=True, destructive_hint=False
     )
 )
-async def get_activity_segments(activity_id: str, api_key: str = "") -> str:
+async def get_activity_segments(activity_id: str) -> str:
     """Get segments (e.g. Strava segments) detected within an activity."""
     result = await make_intervals_request(
         url=f"/activity/{activity_id}/segments",
-        api_key=api_key,
     )
     if isinstance(result, dict) and "error" in result:
         return f"Error fetching segments: {result.get('message', 'Unknown error')}"
@@ -161,11 +155,10 @@ async def get_activity_segments(activity_id: str, api_key: str = "") -> str:
         title="Get Activity Time at HR", read_only_hint=True, destructive_hint=False
     )
 )
-async def get_activity_time_at_hr(activity_id: str, api_key: str = "") -> str:
+async def get_activity_time_at_hr(activity_id: str) -> str:
     """Get the per-bpm time-at-heart-rate distribution for an activity."""
     result = await make_intervals_request(
         url=f"/activity/{activity_id}/time-at-hr",
-        api_key=api_key,
     )
     if isinstance(result, dict) and "error" in result:
         return f"Error fetching time-at-HR: {result.get('message', 'Unknown error')}"
@@ -179,7 +172,6 @@ async def get_activity_time_at_hr(activity_id: str, api_key: str = "") -> str:
 )
 async def get_activity_weather_summary(
     activity_id: str,
-    api_key: str = "",
     start_index: int = 0,
     end_index: int = 0,
 ) -> str:
@@ -187,7 +179,6 @@ async def get_activity_weather_summary(
 
     Args:
         activity_id: The Intervals.icu activity ID.
-        api_key: Optional API key.
         start_index: First stream index to include (0 = start).
         end_index: Last stream index, exclusive (0 = end).
     """
@@ -199,7 +190,6 @@ async def get_activity_weather_summary(
 
     result = await make_intervals_request(
         url=f"/activity/{activity_id}/weather-summary",
-        api_key=api_key,
         params=params or None,
     )
     if isinstance(result, dict) and "error" in result:
@@ -216,7 +206,6 @@ async def get_activity_interval_stats(
     activity_id: str,
     start_index: int,
     end_index: int,
-    api_key: str = "",
 ) -> str:
     """Compute interval-style stats (avg power, HR, etc.) for a sub-section of an activity.
 
@@ -224,12 +213,10 @@ async def get_activity_interval_stats(
         activity_id: The Intervals.icu activity ID.
         start_index: First stream index of the section.
         end_index: Last stream index of the section (exclusive).
-        api_key: Optional API key.
     """
     params = {"start_index": start_index, "end_index": end_index}
     result = await make_intervals_request(
         url=f"/activity/{activity_id}/interval-stats",
-        api_key=api_key,
         params=params,
     )
     if isinstance(result, dict) and "error" in result:
@@ -244,7 +231,6 @@ async def get_activity_interval_stats(
 )
 async def get_activity_map(
     activity_id: str,
-    api_key: str = "",
     bounds: str = "",
     bounds_only: bool = False,
     weather: bool = False,
@@ -253,7 +239,6 @@ async def get_activity_map(
 
     Args:
         activity_id: The Intervals.icu activity ID.
-        api_key: Optional API key.
         bounds: Comma-separated bounding box "left,top,right,bottom" to clip points to.
         bounds_only: If True, return only the map bounds, no latlngs.
         weather: If True, include weather points if available.
@@ -268,7 +253,6 @@ async def get_activity_map(
 
     result = await make_intervals_request(
         url=f"/activity/{activity_id}/map",
-        api_key=api_key,
         params=params or None,
     )
     if isinstance(result, dict) and "error" in result:
@@ -281,11 +265,10 @@ async def get_activity_map(
         title="Get Activity Power vs HR", read_only_hint=True, destructive_hint=False
     )
 )
-async def get_activity_power_vs_hr(activity_id: str, api_key: str = "") -> str:
+async def get_activity_power_vs_hr(activity_id: str) -> str:
     """Get the power-vs-heart-rate scatter data for an activity."""
     result = await make_intervals_request(
         url=f"/activity/{activity_id}/power-vs-hr.json",
-        api_key=api_key,
     )
     if isinstance(result, dict) and "error" in result:
         return f"Error fetching power-vs-HR: {result.get('message', 'Unknown error')}"
@@ -297,11 +280,10 @@ async def get_activity_power_vs_hr(activity_id: str, api_key: str = "") -> str:
         title="Get Activity HR Load Model", read_only_hint=True, destructive_hint=False
     )
 )
-async def get_activity_hr_load_model(activity_id: str, api_key: str = "") -> str:
+async def get_activity_hr_load_model(activity_id: str) -> str:
     """Get the heart-rate-based training-load model for an activity."""
     result = await make_intervals_request(
         url=f"/activity/{activity_id}/hr-load-model",
-        api_key=api_key,
     )
     if isinstance(result, dict) and "error" in result:
         return f"Error fetching HR load model: {result.get('message', 'Unknown error')}"
@@ -313,11 +295,10 @@ async def get_activity_hr_load_model(activity_id: str, api_key: str = "") -> str
         title="Get Activity Power Spike Model", read_only_hint=True, destructive_hint=False
     )
 )
-async def get_activity_power_spike_model(activity_id: str, api_key: str = "") -> str:
+async def get_activity_power_spike_model(activity_id: str) -> str:
     """Get the power-spike-detection model for an activity."""
     result = await make_intervals_request(
         url=f"/activity/{activity_id}/power-spike-model",
-        api_key=api_key,
     )
     if isinstance(result, dict) and "error" in result:
         return f"Error fetching power spike model: {result.get('message', 'Unknown error')}"

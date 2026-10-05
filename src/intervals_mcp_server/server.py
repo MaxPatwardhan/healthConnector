@@ -1,52 +1,26 @@
 """
-Intervals.icu MCP Server
+Intervals.icu MCP Server (read-only)
 
 This module implements a Model Context Protocol (MCP) server for connecting
-Claude with the Intervals.icu API. It provides tools for retrieving and managing
-athlete data, including activities, events, workouts, and wellness metrics.
+Claude with the Intervals.icu API. It exposes read-only tools for athlete data:
+activities and their analysis, wellness metrics, events and races, training
+summaries, zones, power curves, training plans, workouts and custom items.
 
-Main Features:
-    - Activity retrieval and detailed analysis
-    - Event management (races, workouts, calendar items)
-    - Wellness data tracking and visualization
-    - Error handling with user-friendly messages
-    - Configurable parameters with environment variable support
+The server cannot create, modify or delete anything on Intervals.icu. The API
+client only issues GET requests, and credentials (API_KEY, ATHLETE_ID) come only
+from the environment, never from tool arguments.
 
 Usage:
-    This server is designed to be run as a standalone script and exposes several MCP tools
-    for use with Claude Desktop or other MCP-compatible clients. The server loads configuration
-    from environment variables (optionally via a .env file) and communicates with the Intervals.icu API.
+    The server loads configuration from environment variables (optionally via a
+    .env file) and communicates with the Intervals.icu API.
 
-    To run the server:
+    To run the server locally over stdio:
         $ python src/intervals_mcp_server/server.py
 
-    MCP tools provided:
-        - get_activities
-        - get_activity_details
-        - get_activity_intervals
-        - get_activity_streams
-        - get_activity_messages
-        - add_activity_message
-        - get_events
-        - get_races
-        - get_event_by_id
-        - add_or_update_event
-        - delete_event
-        - delete_events_by_date_range
-        - get_wellness_data
-        - get_custom_items
-        - get_custom_item_by_id
-        - create_custom_item
-        - update_custom_item
-        - delete_custom_item
-        - get_workout_folders
-        - list_workouts
-        - get_workout
-        - create_workout
-        - update_workout
-        - schedule_workout
+    To serve it over Streamable HTTP (for remote MCP clients):
+        $ MCP_TRANSPORT=http python src/intervals_mcp_server/server.py
 
-    See the README for more details on configuration and usage.
+    See the README for the full tool list and deployment details.
 """
 
 import logging
@@ -76,79 +50,84 @@ config = get_config()
 
 # Import tool modules to register them (tools register themselves via @mcp.tool() decorators)
 # Import tool functions for re-export
-from intervals_mcp_server.tools.training_summary import get_training_summary  # pylint: disable=wrong-import-position  # noqa: E402
-from intervals_mcp_server.tools.activities import (  # pylint: disable=wrong-import-position  # noqa: E402
-    add_activity_message,
+from intervals_mcp_server.tools import (  # pylint: disable=wrong-import-position  # noqa: E402
     get_activities,
+    get_activities_around,
+    get_activities_by_ids,
+    get_activity_best_efforts,
+    get_activity_curve,
     get_activity_details,
-    get_activity_intervals,
-    get_activity_messages,
-    get_activity_streams,
     get_activity_histogram,
-)
-from intervals_mcp_server.tools.events import (  # pylint: disable=wrong-import-position  # noqa: E402
-    add_or_update_event,
-    delete_event,
-    delete_events_by_date_range,
+    get_activity_hr_load_model,
+    get_activity_interval_stats,
+    get_activity_intervals,
+    get_activity_map,
+    get_activity_messages,
+    get_activity_power_spike_model,
+    get_activity_power_vs_hr,
+    get_activity_segments,
+    get_activity_streams,
+    get_activity_tags,
+    get_activity_time_at_hr,
+    get_activity_weather_summary,
+    get_athlete_power_curves,
+    get_athlete_zones,
+    get_custom_item_by_id,
+    get_custom_items,
     get_event_by_id,
     get_events,
     get_races,
-)
-from intervals_mcp_server.tools.wellness import get_wellness_data  # pylint: disable=wrong-import-position  # noqa: E402
-from intervals_mcp_server.tools.athlete import get_athlete_zones  # pylint: disable=wrong-import-position  # noqa: E402
-from intervals_mcp_server.tools.power_curves import get_athlete_power_curves  # pylint: disable=wrong-import-position  # noqa: E402
-from intervals_mcp_server.tools.custom_items import (  # pylint: disable=wrong-import-position  # noqa: E402
-    create_custom_item,
-    delete_custom_item,
-    get_custom_item_by_id,
-    get_custom_items,
-    update_custom_item,
-)
-from intervals_mcp_server.tools.workout_library import (  # pylint: disable=wrong-import-position  # noqa: E402
-    get_workout_folders,
-    list_workouts,
+    get_training_plan,
+    get_training_summary,
+    get_wellness_data,
     get_workout,
-    create_workout,
-    update_workout,
-    schedule_workout,
+    get_workout_folders,
+    interval_search,
+    list_workouts,
+    search_activities,
 )
 
 # Import resource modules to register them (resources register themselves via @mcp.resource() decorators)
 from intervals_mcp_server.resources.guide import coaching_context_protocol  # pylint: disable=wrong-import-position  # noqa: E402
 
 # Re-export make_intervals_request and httpx_client for backward compatibility
-# pylint: disable=duplicate-code  # This __all__ list is intentionally similar to tools/__init__.py
 __all__ = [
     "make_intervals_request",
     "httpx_client",  # Re-exported for test compatibility
-    "add_activity_message",
     "get_activities",
+    "get_activities_around",
+    "get_activities_by_ids",
+    "get_activity_best_efforts",
+    "get_activity_curve",
     "get_activity_details",
-    "get_activity_intervals",
-    "get_activity_messages",
-    "get_activity_streams",
     "get_activity_histogram",
+    "get_activity_hr_load_model",
+    "get_activity_interval_stats",
+    "get_activity_intervals",
+    "get_activity_map",
+    "get_activity_messages",
+    "get_activity_power_spike_model",
+    "get_activity_power_vs_hr",
+    "get_activity_segments",
+    "get_activity_streams",
+    "get_activity_tags",
+    "get_activity_time_at_hr",
+    "get_activity_weather_summary",
+    "get_athlete_power_curves",
+    "get_athlete_zones",
+    "get_custom_item_by_id",
+    "get_custom_items",
+    "get_event_by_id",
     "get_events",
     "get_races",
-    "get_event_by_id",
-    "delete_event",
-    "delete_events_by_date_range",
-    "add_or_update_event",
-    "get_wellness_data",
-    "get_athlete_zones",
-    "get_athlete_power_curves",
+    "get_training_plan",
     "get_training_summary",
-    "get_custom_items",
-    "get_custom_item_by_id",
-    "create_custom_item",
-    "update_custom_item",
-    "delete_custom_item",
-    "get_workout_folders",
-    "list_workouts",
+    "get_wellness_data",
     "get_workout",
-    "create_workout",
-    "update_workout",
-    "schedule_workout",
+    "get_workout_folders",
+    "interval_search",
+    "list_workouts",
+    "search_activities",
     "coaching_context_protocol",
 ]
 

@@ -11,6 +11,11 @@ from intervals_mcp_server.mcp_instance import mcp
 USAGE_GUIDE = """\
 INTERVALS.ICU MCP SERVER — USAGE GUIDE
 
+This server is READ-ONLY. It can read the athlete's Intervals.icu data but
+cannot create, modify or delete anything (activities, events, workouts,
+wellness, plans). If the user asks for a change, tell them to make it in
+Intervals.icu directly.
+
 CONCEPTS
 
 Activities — completed sessions uploaded from a device. Historical only.
@@ -70,26 +75,16 @@ Analysing a completed activity:
   2. get_activity_details(id)      ← full metrics
   3. get_activity_intervals(id)    ← interval breakdown (if structured)
 
-Planning / calendar management:
+Reviewing the calendar:
   1. get_events()                  ← view upcoming calendar
-  2. add_or_update_event()         ← create or modify a planned workout
+  2. get_races()                   ← upcoming races only
+  3. get_event_by_id(id)           ← full detail for one event
+  4. get_training_plan()           ← the athlete's active training plan
 
 Workout library:
   1. get_workout_folders()         ← discover folder IDs and shared status
   2. list_workouts(folder_id)      ← browse workouts (supports type filter)
   3. get_workout(id)               ← full detail including workout_doc steps
-  4. create_workout(folder_id)     ← add a new workout to the library
-  5. update_workout(workout_id)    ← edit an existing library workout
-  6. schedule_workout(id, date)    ← place a library workout on the calendar
-
-Structured workouts (IMPORTANT):
-  Provide steps via the `workout_doc` argument (create_workout / update_workout /
-  add_or_update_event). The server renders them to Intervals.icu workout-builder
-  text so the platform parses them and draws the step chart. Use these target
-  units so steps render: power `%ftp`/`w`, HR `%hr`/`%lthr`, pace `%pace` or
-  absolute (e.g. 4:30/km). Avoid `pace_zone`/`power_zone` for pace runs — zones
-  may not render a chart. `_power`/`_pace` are resolved OUTPUT fields; never set
-  them as inputs.
 
 Reviewing a period:
   1. get_training_summary(start_date, end_date)
@@ -109,17 +104,25 @@ AVAILABLE TOOLS
   get_activity_streams      Raw time-series streams (power, HR, cadence etc).
   get_wellness_data         Daily wellness entries (HRV, sleep, weight etc).
   get_events                Calendar events — planned workouts, races, notes.
+  get_races                 Race events only.
   get_event_by_id           Single event detail.
-  add_or_update_event       Create or update a planned workout on the calendar.
-  delete_event              Remove an event from the calendar.
-  delete_events_by_date_range  Bulk delete events within a date range.
+  get_training_plan         The athlete's active training plan.
   get_custom_items          Athlete custom charts, fields, and zones.
+  get_custom_item_by_id     Single custom item detail.
   get_workout_folders       Workout library folders with shared indicator.
   list_workouts             Library workouts with folder/type filter and compact mode.
   get_workout               Full workout detail including workout_doc steps.
-  create_workout            Add a new workout to the library.
-  update_workout            Edit an existing library workout.
-  schedule_workout          Schedule a library workout onto the calendar by ID.\
+  get_athlete_power_curves  Best power for set durations across date ranges.
+  get_activity_histogram    Power/HR/pace distribution for one activity.
+  get_activity_messages     Notes and comments on one activity.
+  get_activity_curve, get_activity_best_efforts, get_activity_segments,
+  get_activity_time_at_hr, get_activity_weather_summary,
+  get_activity_interval_stats, get_activity_map, get_activity_power_vs_hr,
+  get_activity_hr_load_model, get_activity_power_spike_model
+                            Deeper analysis of a single activity.
+  search_activities, interval_search, get_activities_around,
+  get_activities_by_ids, get_activity_tags
+                            Find activities by name, tag, interval or ID.\
 """
 
 

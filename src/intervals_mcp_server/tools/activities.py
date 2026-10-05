@@ -1,7 +1,7 @@
 """
 Activity-related MCP tools for Intervals.icu.
 
-This module contains tools for retrieving and managing athlete activities.
+This module contains read-only tools for retrieving athlete activities.
 """
 
 import json
@@ -122,8 +122,6 @@ def _format_activities_response(
     annotations=ToolAnnotations(title="Get Activities", read_only_hint=True, destructive_hint=False)
 )
 async def get_activities(  # pylint: disable=too-many-arguments,too-many-return-statements,too-many-branches,too-many-positional-arguments
-    athlete_id: str = "",
-    api_key: str = "",
     start_date: str = "",
     end_date: str = "",
     limit: int = 10,
@@ -133,8 +131,6 @@ async def get_activities(  # pylint: disable=too-many-arguments,too-many-return-
     """Get a list of activities for an athlete from Intervals.icu
 
     Args:
-        athlete_id: The Intervals.icu athlete ID (optional, will use ATHLETE_ID from .env if not provided)
-        api_key: The Intervals.icu API key (optional, will use API_KEY from .env if not provided)
         start_date: Start date in YYYY-MM-DD format (optional, defaults to 30 days ago)
         end_date: End date in YYYY-MM-DD format (optional, defaults to today)
         limit: Maximum number of activities to return (optional, defaults to 10)
@@ -142,7 +138,7 @@ async def get_activities(  # pylint: disable=too-many-arguments,too-many-return-
         compact: If True, return a brief one-line-per-activity summary to save tokens (optional, defaults to True)
     """
     # Resolve athlete ID and date parameters
-    athlete_id_to_use, error_msg = resolve_athlete_id(athlete_id, config.athlete_id)
+    athlete_id_to_use, error_msg = resolve_athlete_id(config.athlete_id)
     if error_msg:
         return error_msg
 
@@ -154,7 +150,7 @@ async def get_activities(  # pylint: disable=too-many-arguments,too-many-return-
     # Call the Intervals.icu API
     params = {"oldest": start_date, "newest": end_date, "limit": api_limit}
     result = await make_intervals_request(
-        url=f"/athlete/{athlete_id_to_use}/activities", api_key=api_key, params=params
+        url=f"/athlete/{athlete_id_to_use}/activities", params=params
     )
 
     # Check for error
@@ -189,15 +185,14 @@ async def get_activities(  # pylint: disable=too-many-arguments,too-many-return-
         title="Get Activity Details", read_only_hint=True, destructive_hint=False
     )
 )
-async def get_activity_details(activity_id: str, api_key: str = "") -> str:
+async def get_activity_details(activity_id: str) -> str:
     """Get detailed information for a specific activity from Intervals.icu
 
     Args:
         activity_id: The Intervals.icu activity ID
-        api_key: The Intervals.icu API key (optional, will use API_KEY from .env if not provided)
     """
     # Call the Intervals.icu API
-    result = await make_intervals_request(url=f"/activity/{activity_id}", api_key=api_key)
+    result = await make_intervals_request(url=f"/activity/{activity_id}")
 
     if isinstance(result, dict) and "error" in result:
         error_message = result.get("message", "Unknown error")
@@ -234,7 +229,7 @@ async def get_activity_details(activity_id: str, api_key: str = "") -> str:
         title="Get Activity Intervals", read_only_hint=True, destructive_hint=False
     )
 )
-async def get_activity_intervals(activity_id: str, api_key: str = "") -> str:
+async def get_activity_intervals(activity_id: str) -> str:
     """Get interval data for a specific activity from Intervals.icu
 
     This endpoint returns detailed metrics for each interval in an activity, including power, heart rate,
@@ -242,10 +237,9 @@ async def get_activity_intervals(activity_id: str, api_key: str = "") -> str:
 
     Args:
         activity_id: The Intervals.icu activity ID
-        api_key: The Intervals.icu API key (optional, will use API_KEY from .env if not provided)
     """
     # Call the Intervals.icu API
-    result = await make_intervals_request(url=f"/activity/{activity_id}/intervals", api_key=api_key)
+    result = await make_intervals_request(url=f"/activity/{activity_id}/intervals")
 
     if isinstance(result, dict) and "error" in result:
         error_message = result.get("message", "Unknown error")
@@ -263,7 +257,7 @@ async def get_activity_intervals(activity_id: str, api_key: str = "") -> str:
 
     # Fetch activity details to get ignore flags
     ignore_flags_text = ""
-    activity_result = await make_intervals_request(url=f"/activity/{activity_id}", api_key=api_key)
+    activity_result = await make_intervals_request(url=f"/activity/{activity_id}")
     if isinstance(activity_result, dict) and "error" not in activity_result:
         ignore_flags_text = format_ignore_flags(activity_result)
 
@@ -280,7 +274,6 @@ async def get_activity_histogram(
     activity_id: str,
     histogram_type: str,
     bucket_size: int | None = None,
-    api_key: str | None = None,
 ) -> str:
     """Get histogram data for a specific activity from Intervals.icu.
 
@@ -293,7 +286,6 @@ async def get_activity_histogram(
                         ("gap" = gradient-adjusted pace).
         bucket_size: Width of each bucket (optional). For power: watts (defaults to 10),
                      for hr: bpm (defaults to 5). Ignored for pace and gap.
-        api_key: The Intervals.icu API key (optional, will use API_KEY from .env if not provided)
     """
     valid_types = {"power", "hr", "pace", "gap"}
     if histogram_type not in valid_types:
@@ -314,7 +306,7 @@ async def get_activity_histogram(
         bucket = bucket_size if bucket_size is not None else default_bucket_sizes[histogram_type]
         params = {"bucketSize": bucket}
 
-    result = await make_intervals_request(url=url, api_key=api_key, params=params)
+    result = await make_intervals_request(url=url, params=params)
 
     if isinstance(result, dict) and "error" in result:
         error_message = result.get("message", "Unknown error")
@@ -333,7 +325,6 @@ async def get_activity_histogram(
 )
 async def get_activity_streams(
     activity_id: str,
-    api_key: str = "",
     stream_types: str = "",
 ) -> str:
     """Get stream data for a specific activity from Intervals.icu
@@ -343,7 +334,6 @@ async def get_activity_streams(
 
     Args:
         activity_id: The Intervals.icu activity ID
-        api_key: The Intervals.icu API key (optional, will use API_KEY from .env if not provided)
         stream_types: Comma-separated list of stream types to retrieve (optional, defaults to all available types)
                      Available types: time, watts, heartrate, cadence, altitude, distance,
                      core_temperature, skin_temperature, velocity_smooth
@@ -360,7 +350,6 @@ async def get_activity_streams(
     # where ext is required; use ".json" for JSON output.
     result = await make_intervals_request(
         url=f"/activity/{activity_id}/streams.json",
-        api_key=api_key,
         params=params,
     )
 
@@ -414,16 +403,14 @@ async def get_activity_streams(
         title="Get Activity Messages", read_only_hint=True, destructive_hint=False
     )
 )
-async def get_activity_messages(activity_id: str, api_key: str = "") -> str:
+async def get_activity_messages(activity_id: str) -> str:
     """Get messages (notes/comments) for a specific activity from Intervals.icu
 
     Args:
         activity_id: The Intervals.icu activity ID
-        api_key: The Intervals.icu API key (optional, will use API_KEY from .env if not provided)
     """
     result = await make_intervals_request(
         url=f"/activity/{activity_id}/messages",
-        api_key=api_key,
     )
 
     if isinstance(result, dict) and "error" in result:
@@ -443,188 +430,3 @@ async def get_activity_messages(activity_id: str, api_key: str = "") -> str:
             output += format_activity_message(msg) + "\n\n"
 
     return output
-
-
-@mcp.tool(
-    annotations=ToolAnnotations(
-        title="Add Activity Message", read_only_hint=False, destructive_hint=False
-    )
-)
-async def add_activity_message(
-    activity_id: str,
-    content: str,
-    api_key: str = "",
-) -> str:
-    """Add a message (note/comment) to an activity on Intervals.icu
-
-    Args:
-        activity_id: The Intervals.icu activity ID
-        content: The message text to add
-        api_key: The Intervals.icu API key (optional, will use API_KEY from .env if not provided)
-    """
-    result = await make_intervals_request(
-        url=f"/activity/{activity_id}/messages",
-        api_key=api_key,
-        method="POST",
-        data={"content": content},
-    )
-
-    if isinstance(result, dict) and "error" in result:
-        error_message = result.get("message", "Unknown error")
-        return f"Error adding message to activity: {error_message}"
-
-    if not result or not isinstance(result, dict):
-        return "Error: Unexpected response when adding message."
-
-    msg_id = result.get("id")
-    if msg_id is not None:
-        return f"Successfully added message (ID: {msg_id}) to activity {activity_id}."
-    return f"Message appears to have been added to activity {activity_id}, but no ID was returned. Please verify manually."
-
-
-@mcp.tool(
-    annotations=ToolAnnotations(
-        title="Update Activity", read_only_hint=False, destructive_hint=False
-    )
-)
-async def update_activity(
-    activity_id: str,
-    fields: dict[str, Any],
-    api_key: str = "",
-) -> str:
-    """Update metadata on an existing activity.
-
-    Args:
-        activity_id: The Intervals.icu activity ID
-        fields: Dictionary of activity fields to update. Common fields include:
-                name (str), description (str), type (str), trainer (bool), commute (bool),
-                tags (list[str]), gear_id (str), start_date_local (ISO datetime str).
-                Only the provided fields are updated.
-        api_key: The Intervals.icu API key (optional, will use API_KEY from .env if not provided)
-    """
-    if not fields:
-        return "Error: At least one field must be provided to update."
-
-    result = await make_intervals_request(
-        url=f"/activity/{activity_id}",
-        api_key=api_key,
-        method="PUT",
-        data=fields,
-    )
-
-    if isinstance(result, dict) and "error" in result:
-        return f"Error updating activity: {result.get('message', 'Unknown error')}"
-
-    return f"Successfully updated activity {activity_id}."
-
-
-@mcp.tool(
-    annotations=ToolAnnotations(
-        title="Delete Activity", read_only_hint=False, destructive_hint=True
-    )
-)
-async def delete_activity(activity_id: str, api_key: str = "") -> str:
-    """Permanently delete an activity from Intervals.icu.
-
-    Args:
-        activity_id: The Intervals.icu activity ID
-        api_key: The Intervals.icu API key (optional, will use API_KEY from .env if not provided)
-    """
-    if not activity_id:
-        return "Error: No activity ID provided."
-
-    result = await make_intervals_request(
-        url=f"/activity/{activity_id}",
-        api_key=api_key,
-        method="DELETE",
-    )
-
-    if isinstance(result, dict) and "error" in result:
-        return f"Error deleting activity: {result.get('message', 'Unknown error')}"
-
-    return f"Successfully deleted activity {activity_id}."
-
-
-@mcp.tool(
-    annotations=ToolAnnotations(
-        title="Create Manual Activity", read_only_hint=False, destructive_hint=False
-    )
-)
-async def create_manual_activity(
-    activity: dict[str, Any],
-    athlete_id: str = "",
-    api_key: str = "",
-) -> str:
-    """Create a manual (no file) activity for an athlete.
-
-    Args:
-        activity: Activity payload. Typical fields: name (str), type (str, e.g. "Ride"),
-                  start_date_local (ISO datetime str), moving_time (int, seconds),
-                  distance (float, meters), description (str), trainer (bool).
-        athlete_id: The Intervals.icu athlete ID (optional, will use ATHLETE_ID from .env if not provided)
-        api_key: The Intervals.icu API key (optional, will use API_KEY from .env if not provided)
-    """
-    athlete_id_to_use, error_msg = resolve_athlete_id(athlete_id, config.athlete_id)
-    if error_msg:
-        return error_msg
-
-    if not isinstance(activity, dict) or not activity:
-        return "Error: 'activity' must be a non-empty dictionary."
-
-    result = await make_intervals_request(
-        url=f"/athlete/{athlete_id_to_use}/activities/manual",
-        api_key=api_key,
-        method="POST",
-        data=activity,
-    )
-
-    if isinstance(result, dict) and "error" in result:
-        return f"Error creating manual activity: {result.get('message', 'Unknown error')}"
-
-    if isinstance(result, dict):
-        act_id = result.get("id")
-        return f"Successfully created manual activity (ID: {act_id})."
-    return "Manual activity created."
-
-
-@mcp.tool(
-    annotations=ToolAnnotations(
-        title="Bulk Create Manual Activities", read_only_hint=False, destructive_hint=False
-    )
-)
-async def bulk_create_manual_activities(
-    activities: list[dict[str, Any]],
-    athlete_id: str = "",
-    api_key: str = "",
-) -> str:
-    """Create or upsert multiple manual activities in a single request.
-
-    Existing activities are matched on ``external_id`` and updated; new ones are created.
-
-    Args:
-        activities: List of activity payloads. Each item is a dict (see create_manual_activity
-                    for typical fields). Including ``external_id`` enables upsert behaviour.
-        athlete_id: The Intervals.icu athlete ID (optional, will use ATHLETE_ID from .env if not provided)
-        api_key: The Intervals.icu API key (optional, will use API_KEY from .env if not provided)
-    """
-    athlete_id_to_use, error_msg = resolve_athlete_id(athlete_id, config.athlete_id)
-    if error_msg:
-        return error_msg
-
-    if not isinstance(activities, list) or not activities:
-        return "Error: 'activities' must be a non-empty list of activity dictionaries."
-
-    result = await make_intervals_request(
-        url=f"/athlete/{athlete_id_to_use}/activities/manual/bulk",
-        api_key=api_key,
-        method="POST",
-        data=activities,
-    )
-
-    if isinstance(result, dict) and "error" in result:
-        return f"Error bulk-creating activities: {result.get('message', 'Unknown error')}"
-
-    count = len(result) if isinstance(result, list) else None
-    if count is not None:
-        return f"Successfully created/updated {count} activities for athlete {athlete_id_to_use}."
-    return f"Bulk operation completed for athlete {athlete_id_to_use}."

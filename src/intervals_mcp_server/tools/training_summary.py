@@ -470,8 +470,6 @@ def _build_result(
 async def get_training_summary(
     start_date: str = "",
     end_date: str = "",
-    athlete_id: str = "",
-    api_key: str = "",
 ) -> str:
     """
     Returns a compact JSON training snapshot for the given date range.
@@ -487,11 +485,9 @@ async def get_training_summary(
     Args:
         start_date: Start date in YYYY-MM-DD format (optional, defaults to 30 days ago)
         end_date: End date in YYYY-MM-DD format (optional, defaults to 30 days from now)
-        athlete_id: Intervals.icu athlete ID (optional, falls back to ATHLETE_ID env var)
-        api_key: Intervals.icu API key (optional, falls back to API_KEY env var)
     """
     # Resolve athlete ID
-    athlete_id_to_use, error_msg = resolve_athlete_id(athlete_id, config.athlete_id)
+    athlete_id_to_use, error_msg = resolve_athlete_id(config.athlete_id)
     if error_msg:
         return error_msg
 
@@ -511,22 +507,18 @@ async def get_training_summary(
     # Four concurrent API calls
     summary_coro = make_intervals_request(
         url=f"/athlete/{athlete_id_to_use}/athlete-summary",
-        api_key=api_key,
         params={"start": start_date, "end": end_date},
     )
     activities_coro = make_intervals_request(
         url=f"/athlete/{athlete_id_to_use}/activities",
-        api_key=api_key,
         params={"oldest": start_date, "newest": end_date},
     )
     wellness_coro = make_intervals_request(
         url=f"/athlete/{athlete_id_to_use}/wellness",
-        api_key=api_key,
         params={"oldest": start_date, "newest": end_date},
     )
     events_coro = make_intervals_request(
         url=f"/athlete/{athlete_id_to_use}/events",
-        api_key=api_key,
         params={"oldest": start_date, "newest": end_date},
     )
 

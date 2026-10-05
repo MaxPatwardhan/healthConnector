@@ -55,7 +55,9 @@ def start_server(mcp_instance: FastMCP, transport: TransportAliases) -> None:
     """
     if transport == TransportAliases.STDIO:
         logger.info("Starting MCP server with stdio transport.")
-        mcp_instance.run()
+        # The fastmcp startup banner also checks PyPI for a newer fastmcp release;
+        # disable it so Intervals.icu stays the only host this server contacts.
+        mcp_instance.run(show_banner=False)
     else:  # STREAMABLE_HTTP
         # fastmcp reads host/port from its own global settings (FASTMCP_HOST/
         # FASTMCP_PORT) only once, at process start, so read them fresh here
@@ -68,4 +70,4 @@ def start_server(mcp_instance: FastMCP, transport: TransportAliases) -> None:
             port,
             fastmcp.settings.streamable_http_path,
         )
-        mcp_instance.run(transport="streamable-http", host=host, port=port)
+        mcp_instance.run(transport="streamable-http", host=host, port=port, show_banner=False)

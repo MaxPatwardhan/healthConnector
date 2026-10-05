@@ -6,6 +6,7 @@ plain-text content and that key sections are present.
 """
 
 import os
+import re
 import pathlib
 import sys
 
@@ -76,20 +77,53 @@ def test_usage_guide_covers_available_tools():
         "get_activity_streams",
         "get_wellness_data",
         "get_events",
+        "get_races",
         "get_event_by_id",
-        "add_or_update_event",
-        "delete_event",
-        "delete_events_by_date_range",
+        "get_training_plan",
         "get_custom_items",
+        "get_custom_item_by_id",
         "get_workout_folders",
         "list_workouts",
         "get_workout",
+        "get_athlete_power_curves",
+        "get_activity_histogram",
+        "get_activity_messages",
+        "search_activities",
+        "get_activity_curve",
+    ]
+    for tool in expected_tools:
+        assert tool in USAGE_GUIDE, f"Tool {tool!r} missing from AVAILABLE TOOLS"
+
+
+def test_usage_guide_mentions_no_write_tools():
+    """The guide must not point the model at tools this read-only server doesn't have."""
+    removed_tools = [
+        "add_activity_message",
+        "update_activity",
+        "delete_activity",
+        "create_manual_activity",
+        "bulk_create_manual_activities",
+        "update_activity_intervals",
+        "update_activity_interval",
+        "delete_activity_intervals",
+        "split_activity_interval",
+        "add_or_update_event",
+        "delete_event",
+        "delete_events_by_date_range",
+        "create_custom_item",
+        "update_custom_item",
+        "delete_custom_item",
+        "change_training_plan",
+        "apply_plan_changes",
+        "apply_plan_to_calendar",
+        "change_athlete_plans_bulk",
         "create_workout",
         "update_workout",
         "schedule_workout",
     ]
-    for tool in expected_tools:
-        assert tool in USAGE_GUIDE, f"Tool {tool!r} missing from AVAILABLE TOOLS"
+    for tool in removed_tools:
+        assert not re.search(rf"\b{tool}\b", USAGE_GUIDE), f"Guide still mentions {tool!r}"
+    assert "READ-ONLY" in USAGE_GUIDE
 
 
 def test_usage_guide_documents_compliance_distinction():

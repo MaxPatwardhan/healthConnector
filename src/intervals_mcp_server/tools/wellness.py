@@ -26,8 +26,6 @@ config = get_config()
     )
 )
 async def get_wellness_data(
-    athlete_id: str = "",
-    api_key: str = "",
     start_date: str = "",
     end_date: str = "",
     fields: list[str] | None = None,
@@ -41,8 +39,6 @@ async def get_wellness_data(
     additional or custom fields configured by the user in Intervals.icu.
 
     Args:
-        athlete_id: The Intervals.icu athlete ID (optional, will use ATHLETE_ID from .env if not provided)
-        api_key: The Intervals.icu API key (optional, will use API_KEY from .env if not provided)
         start_date: Start date in YYYY-MM-DD format (optional, defaults to 30 days ago)
         end_date: End date in YYYY-MM-DD format (optional, defaults to today)
         fields: List of wellness sections to include (optional, defaults to all).
@@ -53,7 +49,7 @@ async def get_wellness_data(
             without cadence filtering. Must be a positive integer when provided.
         include_all_fields: If True, include additional and custom fields beyond the standard set (optional, defaults to False)
     """
-    athlete_id_to_use, error_msg = resolve_athlete_id(athlete_id, config.athlete_id)
+    athlete_id_to_use, error_msg = resolve_athlete_id(config.athlete_id)
     if error_msg:
         return error_msg
 
@@ -78,7 +74,7 @@ async def get_wellness_data(
     params = {"oldest": start_date, "newest": end_date}
 
     result = await make_intervals_request(
-        url=f"/athlete/{athlete_id_to_use}/wellness", api_key=api_key, params=params
+        url=f"/athlete/{athlete_id_to_use}/wellness", params=params
     )
 
     if isinstance(result, dict) and "error" in result:

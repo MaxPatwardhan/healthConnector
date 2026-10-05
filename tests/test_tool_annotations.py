@@ -14,15 +14,8 @@ os.environ.setdefault("ATHLETE_ID", "i1")
 
 from intervals_mcp_server.mcp_instance import mcp  # noqa: E402
 
-# Import all tool modules so they register with the mcp instance
-import intervals_mcp_server.tools.activities  # noqa: E402, F401
-import intervals_mcp_server.tools.events  # noqa: E402, F401
-import intervals_mcp_server.tools.wellness  # noqa: E402, F401
-import intervals_mcp_server.tools.custom_items  # noqa: E402, F401
-import intervals_mcp_server.tools.athlete  # noqa: E402, F401
-import intervals_mcp_server.tools.power_curves  # noqa: E402, F401
-import intervals_mcp_server.tools.training_summary  # noqa: E402, F401
-import intervals_mcp_server.tools.workout_library  # noqa: E402, F401
+# Import the server so every tool module registers with the mcp instance
+import intervals_mcp_server.server  # noqa: E402, F401
 
 
 EXPECTED_ANNOTATIONS = {
@@ -47,25 +40,9 @@ EXPECTED_ANNOTATIONS = {
         "readOnlyHint": True,
         "destructiveHint": False,
     },
-    "add_activity_message": {
-        "title": "Add Activity Message",
-        "readOnlyHint": False,
-        "destructiveHint": False,
-    },
     "get_events": {"title": "Get Events", "readOnlyHint": True, "destructiveHint": False},
     "get_races": {"title": "Get Races", "readOnlyHint": True, "destructiveHint": False},
     "get_event_by_id": {"title": "Get Event by ID", "readOnlyHint": True, "destructiveHint": False},
-    "add_or_update_event": {
-        "title": "Add or Update Event",
-        "readOnlyHint": False,
-        "destructiveHint": False,
-    },
-    "delete_event": {"title": "Delete Event", "readOnlyHint": False, "destructiveHint": True},
-    "delete_events_by_date_range": {
-        "title": "Delete Events by Date Range",
-        "readOnlyHint": False,
-        "destructiveHint": True,
-    },
     "get_wellness_data": {
         "title": "Get Wellness Data",
         "readOnlyHint": True,
@@ -80,21 +57,6 @@ EXPECTED_ANNOTATIONS = {
         "title": "Get Custom Item by ID",
         "readOnlyHint": True,
         "destructiveHint": False,
-    },
-    "create_custom_item": {
-        "title": "Create Custom Item",
-        "readOnlyHint": False,
-        "destructiveHint": False,
-    },
-    "update_custom_item": {
-        "title": "Update Custom Item",
-        "readOnlyHint": False,
-        "destructiveHint": False,
-    },
-    "delete_custom_item": {
-        "title": "Delete Custom Item",
-        "readOnlyHint": False,
-        "destructiveHint": True,
     },
     "get_training_summary": {
         "title": "Get Training Summary",
@@ -118,21 +80,6 @@ EXPECTED_ANNOTATIONS = {
     },
     "list_workouts": {"title": "List Workouts", "readOnlyHint": True, "destructiveHint": False},
     "get_workout": {"title": "Get Workout", "readOnlyHint": True, "destructiveHint": False},
-    "create_workout": {
-        "title": "Create Library Workout",
-        "readOnlyHint": False,
-        "destructiveHint": False,
-    },
-    "update_workout": {
-        "title": "Update Library Workout",
-        "readOnlyHint": False,
-        "destructiveHint": False,
-    },
-    "schedule_workout": {
-        "title": "Schedule Workout to Calendar",
-        "readOnlyHint": False,
-        "destructiveHint": False,
-    },
 }
 
 

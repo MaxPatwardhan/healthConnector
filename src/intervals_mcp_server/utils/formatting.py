@@ -287,18 +287,6 @@ def format_activity_compact(activity: dict[str, Any]) -> str:
     return " | ".join(parts)
 
 
-def format_workout(workout: dict[str, Any]) -> str:
-    """Format a workout into a readable string."""
-    return f"""
-Workout: {workout.get("name", "Unnamed")}
-Description: {workout.get("description", "No description")}
-Sport: {workout.get("sport", "Unknown")}
-Duration: {workout.get("duration", 0)} seconds
-TSS: {workout.get("tss", "N/A")}
-Intervals: {len(workout.get("intervals", []))}
-"""
-
-
 def _format_training_metrics(entries: dict[str, Any]) -> list[str]:
     """Format training metrics section."""
     training_metrics = []
